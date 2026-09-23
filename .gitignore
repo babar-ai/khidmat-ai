@@ -6,8 +6,12 @@
 *-adminsdk-*.json      # Firebase service account keys
 firebase-credentials.json
 
-# ── Mobile App (has its own separate git repo) ────────────────────────────────
-khidmat-mobile/
+# ── Mobile App (Expo / React Native) ────────────────────────────────────────
+# Tracked in this monorepo — only ignore build artifacts and deps
+khidmat-mobile/node_modules/
+khidmat-mobile/.expo/
+khidmat-mobile/dist/
+khidmat-mobile/.env
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
@@ -38,11 +42,7 @@ htmlcov/
 # ── Docker ────────────────────────────────────────────────────────────────────
 # Don't ignore docker-compose.yml — it's needed to run the project
 
-# ── Node / Expo (mobile app) ──────────────────────────────────────────────────
-khidmat-mobile/node_modules/
-khidmat-mobile/.expo/
-khidmat-mobile/dist/
-khidmat-mobile/.env
+# ── Node / npm logs ─────────────────────────────────────────────────────────
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
