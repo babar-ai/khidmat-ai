@@ -1,0 +1,62 @@
+# ── Secrets & Keys (NEVER commit these) ──────────────────────────────────────
+.env
+*.env
+.env.*
+!.env.example          # allow the example file through
+*-adminsdk-*.json      # Firebase service account keys
+firebase-credentials.json
+
+# ── Mobile App (has its own separate git repo) ────────────────────────────────
+khidmat-mobile/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+pip-log.txt
+
+# ── Alembic ───────────────────────────────────────────────────────────────────
+# Keep migrations folder but ignore the compiled cache
+alembic/versions/__pycache__/
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Don't ignore docker-compose.yml — it's needed to run the project
+
+# ── Node / Expo (mobile app) ──────────────────────────────────────────────────
+khidmat-mobile/node_modules/
+khidmat-mobile/.expo/
+khidmat-mobile/dist/
+khidmat-mobile/.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json   # allow recommended extensions list
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.docx
+*.zip
+*.tar.gz
