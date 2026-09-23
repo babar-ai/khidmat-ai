@@ -8,10 +8,10 @@ firebase-credentials.json
 
 # ── Mobile App (Expo / React Native) ────────────────────────────────────────
 # Tracked in this monorepo — only ignore build artifacts and deps
-khidmat-mobile/node_modules/
-khidmat-mobile/.expo/
-khidmat-mobile/dist/
-khidmat-mobile/.env
+khidmat-mobile-app/node_modules/
+khidmat-mobile-app/.expo/
+khidmat-mobile-app/dist/
+khidmat-mobile-app/.env
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/

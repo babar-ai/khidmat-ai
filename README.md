@@ -75,7 +75,7 @@ khidmat-ai/
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .env.example
-├── khidmat-mobile/             # Expo React Native mobile app
+├── khidmat-mobile-app/             # Expo React Native mobile app
 ├── docker-compose.yml          # PostgreSQL (PostGIS) + FastAPI
 └── README.md
 ```
@@ -209,7 +209,7 @@ WHERE ST_DWithin(location::geography, ST_MakePoint(73.04, 33.68)::geography, 500
 ## 📱 Mobile App (Expo)
 
 ```bash
-cd khidmat-mobile
+cd khidmat-mobile-app
 npm install
 npm start
 ```
