@@ -43,3 +43,7 @@ app-example
 # generated native folders
 /ios
 /android
+
+# AI / Agent tool configs (local only)
+.claude/
+.vscode/

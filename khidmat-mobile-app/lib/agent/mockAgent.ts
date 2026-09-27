@@ -1,9 +1,8 @@
-import { Platform } from 'react-native';
 import type { ServiceCategory, Provider } from '../mock/providers';
 import type { AgentEvent, ExtractedIntent } from './types';
 
-// Use 10.0.2.2 for Android emulator, localhost for iOS simulator
-const API_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+// Reads from EXPO_PUBLIC_API_BASE_URL (same as khidmatApi.ts)
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8000').replace(/\/$/, '');
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -41,12 +40,6 @@ export async function* runAgent(
     finalMessage += ` (Location: ${context.defaultLocation})`;
   }
 
-  yield {
-    type: 'understanding',
-    extracted: { service: null, location: null, time: null, resolvedSlot: null },
-    usedDefaultLocation: false,
-  };
-  
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/request`, {
       method: 'POST',

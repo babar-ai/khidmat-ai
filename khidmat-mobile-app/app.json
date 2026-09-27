@@ -7,9 +7,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "khidmat",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Khidmat uses your location to find nearby service providers.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Khidmat uses your location to find nearby service providers."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,8 +21,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -27,6 +32,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Khidmat uses your location to find the nearest service providers."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -41,8 +52,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     }
   }
 }

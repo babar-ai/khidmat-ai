@@ -22,6 +22,7 @@ import { ExamplePromptChip } from '@/components/ExamplePromptChip';
 import { runAgent, confirmBooking } from '@/lib/agent/mockAgent';
 import { useSettingsStore } from '@/lib/stores/useSettingsStore';
 import { useBookingsStore } from '@/lib/stores/useBookingsStore';
+import { useLocationStore } from '@/lib/stores/useLocationStore';
 import type { AgentEvent } from '@/lib/agent/types';
 
 type RecommendationEvent = Extract<AgentEvent, { type: 'recommendation' }>;
@@ -136,6 +137,10 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const defaultLocation = useSettingsStore((s) => s.defaultLocation);
   const addBooking = useBookingsStore((s) => s.addBooking);
+
+  // GPS location state — used to show location badge in header
+  const { coordinates, permissionStatus, isFetching } = useLocationStore();
+  const hasGps = coordinates !== null;
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -412,14 +417,51 @@ export default function ChatScreen() {
               Your AI service assistant
             </Text>
           </View>
-          {messages.length > 0 && !isProcessing && (
-            <Pressable
-              onPress={handleNewChat}
-              className="h-9 w-9 items-center justify-center rounded-full bg-gray-50 active:bg-gray-100"
+
+          <View className="flex-row items-center gap-2">
+            {/* GPS location status badge */}
+            <View
+              className={`flex-row items-center gap-1 rounded-full px-2 py-1 ${
+                isFetching
+                  ? 'bg-yellow-50'
+                  : hasGps
+                    ? 'bg-green-50'
+                    : 'bg-gray-100'
+              }`}
             >
-              <Ionicons name="create-outline" size={18} color="#6b7280" />
-            </Pressable>
-          )}
+              <Ionicons
+                name={
+                  isFetching
+                    ? 'locate-outline'
+                    : hasGps
+                      ? 'location'
+                      : 'location-outline'
+                }
+                size={12}
+                color={isFetching ? '#d97706' : hasGps ? '#16a34a' : '#9ca3af'}
+              />
+              <Text
+                className={`text-[10px] font-medium ${
+                  isFetching
+                    ? 'text-yellow-600'
+                    : hasGps
+                      ? 'text-green-700'
+                      : 'text-gray-400'
+                }`}
+              >
+                {isFetching ? 'Locating…' : hasGps ? 'GPS Active' : 'No GPS'}
+              </Text>
+            </View>
+
+            {messages.length > 0 && !isProcessing && (
+              <Pressable
+                onPress={handleNewChat}
+                className="h-9 w-9 items-center justify-center rounded-full bg-gray-50 active:bg-gray-100"
+              >
+                <Ionicons name="create-outline" size={18} color="#6b7280" />
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {/* Chat messages */}
