@@ -6,9 +6,34 @@
  * so every request has user_lat / user_lng when available.
  */
 
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { useLocationStore } from '@/lib/stores/useLocationStore';
 
-const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8000').replace(/\/$/, '');
+/**
+ * Resolves the backend API base URL.
+ * Automatically adapts for Android (physical device via Metro IP or emulator via 10.0.2.2)
+ * so it never fails with "failed to connect to localhost/127.0.0.1:8000".
+ */
+export function getApiBaseUrl(): string {
+  let url = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').trim();
+
+  // Extract Metro bundler host IP if available (e.g. 10.125.107.241)
+  const hostUri = Constants.expoConfig?.hostUri;
+  const metroHost = hostUri ? hostUri.split(':')[0] : null;
+
+  if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
+    if (Platform.OS === 'android') {
+      url = metroHost ? `http://${metroHost}:8000` : 'http://10.0.2.2:8000';
+    } else if (Platform.OS === 'ios') {
+      url = metroHost ? `http://${metroHost}:8000` : 'http://localhost:8000';
+    } else {
+      url = 'http://localhost:8000';
+    }
+  }
+
+  return url.replace(/\/$/, '');
+}
 
 // ── Types mirroring backend schemas ─────────────────────────────────────────
 
@@ -17,7 +42,9 @@ export type ServiceRequestPayload = {
   user_id: string;
   user_lat?: number | null;
   user_lng?: number | null;
+  session_id?: string | null;
 };
+
 
 export type IntentResult = {
   service_type: string;
@@ -96,7 +123,7 @@ export async function sendServiceRequest(
     user_lng: coordinates?.longitude ?? null,
   };
 
-  const response = await fetch(`${BASE_URL}/api/v1/request`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -114,7 +141,7 @@ export async function sendServiceRequest(
  * GET /api/v1/booking/{id}
  */
 export async function getBooking(bookingId: number): Promise<BookingRead> {
-  const response = await fetch(`${BASE_URL}/api/v1/booking/${bookingId}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/booking/${bookingId}`);
 
   if (!response.ok) {
     throw new Error(`Booking not found (status ${response.status})`);
@@ -127,7 +154,7 @@ export async function getBooking(bookingId: number): Promise<BookingRead> {
  * GET /api/v1/trace/{session_id}
  */
 export async function getTrace(sessionId: string): Promise<TraceStep[]> {
-  const response = await fetch(`${BASE_URL}/api/v1/trace/${sessionId}`);
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/trace/${sessionId}`);
 
   if (!response.ok) {
     throw new Error(`Trace not found (status ${response.status})`);
@@ -137,14 +164,73 @@ export async function getTrace(sessionId: string): Promise<TraceStep[]> {
   return data.steps as TraceStep[];
 }
 
+
 /**
  * GET /health — backend liveness probe
  */
 export async function checkHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    const response = await fetch(`${getApiBaseUrl()}/health`, { signal: AbortSignal.timeout(3000) });
     return response.ok;
   } catch {
     return false;
   }
 }
+
+// ── Provider Registration ──────────────────────────────────────────────────────
+
+export type ProviderRegisterPayload = {
+  name: string;
+  phone: string;
+  whatsapp_number?: string;
+  city: string;
+  category: string;
+  location_name?: string;      // human-readable, e.g. "G-13, Islamabad"
+  latitude?: number;
+  longitude?: number;
+  description?: string;
+  cnic: string;
+  business_reg_number?: string;
+};
+
+export type ProviderRead = {
+  id: number;
+  name: string;
+  phone: string;
+  whatsapp_number: string | null;
+  city: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  description: string | null;
+  business_reg_number: string | null;
+  rating: number;
+  reviews_count: number;
+  is_active: boolean;
+};
+
+/**
+ * POST /api/v1/provider/register
+ *
+ * Registers a new service provider.
+ * Accepts either location_name (geocoded automatically) or raw lat/lng.
+ */
+export async function registerProvider(payload: ProviderRegisterPayload): Promise<ProviderRead> {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/provider/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = body?.detail;
+    if (typeof detail === 'string') throw new Error(detail);
+    if (typeof detail === 'object') throw new Error(detail?.msg ?? JSON.stringify(detail));
+    throw new Error(`Registration failed (status ${response.status})`);
+  }
+
+  return response.json() as Promise<ProviderRead>;
+}
+
+

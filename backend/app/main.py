@@ -1,9 +1,17 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
 
 from core.database import engine
+from routers import request, booking, trace, provider
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -48,3 +56,13 @@ app = FastAPI(
 @app.get("/health", tags=["System"])
 def health():
     return {"status": "ok", "service": "khidmat-backend"}
+
+
+# ── Routers (Phase 5) ─────────────────────────────────────────────────────────
+# Each router file owns its own prefix (/api/v1) and tag.
+# include_router() mounts all its endpoints onto the main app.
+app.include_router(request.router)
+app.include_router(booking.router)
+app.include_router(trace.router)
+app.include_router(provider.router)  # Phase 6 — provider self-registration
+

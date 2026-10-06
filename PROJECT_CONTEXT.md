@@ -1,7 +1,7 @@
 # Khidmat AI — Complete Project Handoff Document
 
 > **Purpose**: Full context for continuing development.
-> Last updated: 2026-09-23. Phases 1-4.0 are complete.
+> Last updated: 2026-09-29. Phases 1–5 are complete.
 > GitHub: https://github.com/babar-ai/khidmat-ai
 
 ---
@@ -46,7 +46,7 @@ d:\project ideas\kidmat project\
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py               (empty)
-│   │   └── main.py                   DONE - lifespan, health endpoint
+│   │   └── main.py                   DONE - lifespan, health endpoint, routers registered
 │   ├── core/
 │   │   ├── __init__.py               (empty)
 │   │   ├── config.py                 DONE - Pydantic Settings reads .env
@@ -66,8 +66,11 @@ d:\project ideas\kidmat project\
 │   ├── agents/                       DONE (Phase 4)
 │   │   ├── __init__.py               DONE - exports KhidmatState
 │   │   └── state.py                  DONE - central KhidmatState TypedDict (input, trace, outputs)
-│   ├── routers/                      NEXT - Phase 5
-│   │   (empty)
+│   ├── routers/                      DONE (Phase 5)
+│   │   ├── __init__.py               DONE
+│   │   ├── request.py                DONE - POST /api/v1/request (main pipeline)
+│   │   ├── booking.py                DONE - GET /booking/{id}, PATCH /booking/{id}/status
+│   │   └── trace.py                  DONE - GET /api/v1/trace/{session_id}
 │   ├── services/                     DONE
 │   │   ├── __init__.py               DONE - exports OpenAIService, LangGraphService, prompt templates
 │   │   ├── openai_services.py        DONE - centralized OpenAI wrapper (single point of control)
@@ -220,9 +223,9 @@ def include_object(object, name, type_, reflected, compare_to):
 
 ---
 
-## 8. WHERE TO CONTINUE: Phase 4.1 - LangGraph Agents
+## 8. WHERE TO CONTINUE: Phase 6 - Seed Data
 
-Nothing in Phase 4.1+ has been started yet. Start with agents/state.py.
+Phases 1–5 are fully complete. The next step is seeding the `providers` table with mock Islamabad data so the pipeline has real rows to match against.
 
 ### Why LangGraph (user's explicit choice)
 - Stateful: TypedDict state flows between all agent nodes
@@ -471,31 +474,43 @@ khidmat_graph = build_graph()
 
 ---
 
-## 9. Phase 5 - Routes (after agents done)
+## 9. Phase 5 - Routes (DONE)
 
+All 3 routers implemented and registered. Backend reloaded cleanly with no errors.
+
+### routers/request.py — POST /api/v1/request
 ```python
-# routers/request.py
-@router.post("/api/v1/request", response_model=ServiceResponse)
-async def handle_request(body: ServiceRequest):
-    session_id = str(uuid.uuid4())
-    initial_state = {
-        "request_text": body.text, "user_id": body.user_id,
-        "user_lat": body.user_lat, "user_lng": body.user_lng,
-        "session_id": session_id, "intent": None, "providers": [],
-        "booking": None, "trace_steps": [], "error": None,
-    }
-    result = khidmat_graph.invoke(initial_state)
-    # build and return ServiceResponse from result
-
-# routers/booking.py
-GET  /api/v1/booking/{id}            -> BookingRead
-PATCH /api/v1/booking/{id}/status    -> BookingRead (body: BookingStatusUpdate)
-
-# routers/trace.py
-GET /api/v1/trace/{session_id}       -> TraceRead
+@router.post("/api/v1/request", response_model=ServiceResponse,
+             responses={400: {"model": ErrorResponse}})
+def handle_request(body: ServiceRequest):
+    result = langgraph_service.run_pipeline(
+        request_text=body.text, user_id=body.user_id,
+        user_lat=body.user_lat, user_lng=body.user_lng,
+    )
+    if result.get("error") or not result.get("booking"):
+        raise HTTPException(status_code=400, detail={...})
+    return ServiceResponse(
+        session_id=result["session_id"],
+        intent=IntentResult(**result["intent"]),
+        provider=ProviderSummary(**result["providers"][0]),
+        booking=BookingRead(**result["booking"]),
+        trace=[TraceStep(**s) for s in result["trace_steps"]],
+        message=f"Booking confirmed! Code: {result['booking']['booking_code']}",
+    )
 ```
 
-Register all routers in app/main.py:
+### routers/booking.py
+```python
+GET   /api/v1/booking/{id}          -> BookingRead      (db.get(Booking, id))
+PATCH /api/v1/booking/{id}/status   -> BookingRead      (body: BookingStatusUpdate)
+```
+
+### routers/trace.py
+```python
+GET /api/v1/trace/{session_id}      -> TraceRead        (filter by session_id)
+```
+
+### app/main.py registration
 ```python
 from routers import request, booking, trace
 app.include_router(request.router)
@@ -532,11 +547,16 @@ DONE  Phase 4.2 IntentNode      agents/intent_node.py
 DONE  Phase 4.3 MatchingNode    agents/matching_node.py
 DONE  Phase 4.4 BookingNode     agents/booking_node.py
 DONE  Phase 4.5 Graph           agents/graph.py + services/langgraph_services.py
-NEXT  Phase 5   Routes          POST /request, GET /booking, GET /trace
-TODO  Phase 6   Seed Data       mock providers in Islamabad
-TODO  Phase 7   End-to-end test curl full pipeline
-TODO  Phase 8   Mobile connect  wire khidmat-mobile-app to real API
+DONE  Phase 5   Routes          POST /request, GET /booking, PATCH /booking/status, GET /trace
+DONE  Phase 6   Provider Reg    POST /provider/register (geocoding via geopy, CNIC check, mobile screen)
+DONE  Phase 7   Greetings & UX  GPT-4o detects greetings, crafts natural replies in Urdu/Roman Urdu/English
+DONE  Phase 8   Mobile connect  Dynamic Metro host IP fallback + realAgent event streaming
+DONE  Phase 9   State & Followup PostgresSaver checkpoint persistence, slot-filling & targeted follow-up questions
+DONE  Phase 10  Conversational  Multi-turn dialogue acts (objection/alternative/query handling via conversation_node)
+NEXT  Phase 11  Mobile testing  Test multi-turn objection and alternative provider flows on phone in Expo Go
 ```
+
+
 
 ---
 

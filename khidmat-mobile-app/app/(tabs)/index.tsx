@@ -19,7 +19,7 @@ import { ExtractedFieldsRow } from '@/components/ExtractedFieldsRow';
 import { ProviderCard } from '@/components/ProviderCard';
 import { InputBar } from '@/components/InputBar';
 import { ExamplePromptChip } from '@/components/ExamplePromptChip';
-import { runAgent, confirmBooking } from '@/lib/agent/mockAgent';
+import { runAgent, confirmBooking, resetConversationSession } from '@/lib/agent/realAgent';
 import { useSettingsStore } from '@/lib/stores/useSettingsStore';
 import { useBookingsStore } from '@/lib/stores/useBookingsStore';
 import { useLocationStore } from '@/lib/stores/useLocationStore';
@@ -229,6 +229,7 @@ export default function ChatScreen() {
         );
 
         if (confirmedEvent) {
+          resetConversationSession();
           addBooking({
             id: confirmedEvent.bookingId,
             providerId: rec.provider.id,
@@ -269,6 +270,7 @@ export default function ChatScreen() {
         {
           text: 'New Chat',
           onPress: () => {
+            resetConversationSession();
             setMessages([]);
             setAgentEvents([]);
             agentEventsRef.current = [];

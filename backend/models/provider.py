@@ -39,9 +39,16 @@ class Provider(Base):
     # ── Basic Info ────────────────────────────────────────────────────────────
     # String(100) = VARCHAR(100) in SQL — max 100 characters
     # nullable=False means this column cannot be empty in the DB
-    name:  Mapped[str]  = mapped_column(String(150), nullable=False)
-    phone: Mapped[str] =  mapped_column(String(20),  nullable=True)
-    city:  Mapped[str]  = mapped_column(String(100), nullable=False)
+    name:             Mapped[str]       = mapped_column(String(150), nullable=False)
+    phone:            Mapped[str]       = mapped_column(String(20),  nullable=False)  # required for registration
+    whatsapp_number:  Mapped[str | None]= mapped_column(String(20),  nullable=True)   # optional
+    city:             Mapped[str]       = mapped_column(String(100), nullable=False)
+
+    # ── Provider Profile ──────────────────────────────────────────────────────
+    # Extra info the provider fills in during self-registration.
+    description:      Mapped[str | None]= mapped_column(String(500), nullable=True)   # e.g. "5 yrs exp, G-sectors"
+    cnic:             Mapped[str | None]= mapped_column(String(15),  nullable=True)   # national identity card
+    business_reg_number: Mapped[str | None] = mapped_column(String(50), nullable=True) # optional business reg
 
     # ── Service Category ──────────────────────────────────────────────────────
     # SAEnum wraps our Python enum so PostgreSQL enforces the allowed values

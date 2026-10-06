@@ -32,3 +32,7 @@ class ServiceRequest(BaseModel):
     # If not provided, the MatchingAgent falls back to city-only matching
     user_lat: float | None = Field(None, ge=-90,  le=90,  description="User latitude")
     user_lng: float | None = Field(None, ge=-180, le=180, description="User longitude")
+
+    # Optional — thread session ID to continue multi-turn conversations
+    session_id: str | None = Field(None, description="Thread session ID for conversational state persistence")
+

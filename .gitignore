@@ -1,73 +1,160 @@
 # ── Secrets & Keys (NEVER commit these) ──────────────────────────────────────
 .env
 *.env
+.env.*
 .env.local
 .env.*.local
-!.env.example          # allow the example file through
-*-adminsdk-*.json      # Firebase service account keys
+!.env.example
+!**/.env.example
+*-adminsdk-*.json
 firebase-credentials.json
+credentials.json
+client_secret*.json
+*.pem
+*.key
+*.cert
+*.crt
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
 
-# ── Mobile App (Expo / React Native) ────────────────────────────────────────
-# Tracked in this monorepo — only ignore build artifacts and deps
-khidmat-mobile-app/node_modules/
-khidmat-mobile-app/.expo/
-khidmat-mobile-app/dist/
-khidmat-mobile-app/.env
+# ── Mobile App (Expo / React Native / Metro) ───────────────────────────────────
+node_modules/
+**/node_modules/
+.expo/
+**/.expo/
+.expo-shared/
+**/.expo-shared/
+dist/
+**/dist/
+web-build/
+**/web-build/
+.metro-health-check*
+*.tsbuildinfo
+.eslintcache
+app-example/
+ios/
+android/
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 **/__pycache__/
 *.py[cod]
+*$py.class
 *.pyo
 *.pyd
 *.so
 *.egg
 *.egg-info/
+**/*.egg-info/
 build/
 .eggs/
+develop-eggs/
+downloads/
+eggs/
+parts/
+sdist/
+var/
+wheels/
+.installed.cfg
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
 .venv/
+**/.venv/
 venv/
+**/venv/
 env/
+**/env/
+ENV/
 pip-log.txt
+pip-delete-this-directory.txt
 
 # ── Alembic ───────────────────────────────────────────────────────────────────
-# Keep migrations folder but ignore compiled cache
 alembic/versions/__pycache__/
 backend/alembic/versions/__pycache__/
 
-# ── Testing ───────────────────────────────────────────────────────────────────
+# ── Testing, Coverage & Linters ───────────────────────────────────────────────
 .pytest_cache/
+**/.pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+**/.mypy_cache/
+.ruff_cache/
+**/.ruff_cache/
+
+# ── Logs & Debugging ──────────────────────────────────────────────────────────
 *.log
-
-# ── Docker ────────────────────────────────────────────────────────────────────
-# Don't ignore docker-compose.yml — it's needed to run the project
-
-# ── Node / npm logs ─────────────────────────────────────────────────────────
+**/*.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+
+# ── Databases & Local State ───────────────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db-journal
+*.dump
 
 # ── Editor & IDE ──────────────────────────────────────────────────────────────
 .vscode/
-!.vscode/extensions.json   # allow recommended extensions list
+**/.vscode/
+!.vscode/extensions.json
 .idea/
+**/.idea/
 *.swp
 *.swo
+*~
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
 
-# ── AI / Agent tool configs (local only) ────────────────────────────────────
+# ── AI & Coding Agent Tools (Local Only) ──────────────────────────────────────
 .claude/
+**/.claude/
 .agents/
+**/.agents/
 .gemini/
+**/.gemini/
+.cursor/
+**/.cursor/
+.windsurf/
+**/.windsurf/
+.copilot/
+**/.copilot/
 
-# ── OS ────────────────────────────────────────────────────────────────────────
+# ── Operating System Artifacts ────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
 desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# ── Misc ──────────────────────────────────────────────────────────────────────
-*.docx
+# ── Temporary & Scratch Files ─────────────────────────────────────────────────
+scratch/
+**/scratch/
+tmp/
+**/tmp/
+temp/
+**/temp/
+*.tmp
+*.bak
+*.orig.*
+
+# ── Archives & Compressed Files ───────────────────────────────────────────────
 *.zip
 *.tar.gz
-dist/
+*.tgz
+*.rar
+*.7z
+*.docx

@@ -75,6 +75,51 @@ class KhidmatState(TypedDict):
       - updated_at: str | datetime
     """
 
+    # ── Conversational Context & Slot Filling (Persisted in Postgres) ────────
+    chat_history: list[dict[str, str]]
+    """Cumulative message turns for this thread: [{'role': 'user'|'assistant', 'content': '...'}]"""
+
+    missing_slots: list[str]
+    """Slots still needed before booking can proceed (e.g. ['location', 'timing'])."""
+
+    followup_question: str | None
+    """Targeted question to ask the user if missing_slots is not empty."""
+
+    is_ready_to_book: bool
+    """True when all necessary slots (service, location, timing) are satisfied."""
+
+    # ── Post-Recommendation Conversational State ──────────────────────────────
+    dialogue_act: str | None
+    """
+    Classifies what the user is doing in a post-recommendation turn:
+      - 'slot_filling'         — still collecting service / location / timing
+      - 'objection_distance'   — "too far away", "door hai"
+      - 'objection_price'      — "too expensive", "mehenga hai"
+      - 'request_alternative'  — "show someone else", "koi aur dikhao"
+      - 'general_query'        — asking a question about the provider / service
+      - 'booking_confirmed'    — "yes book him", "theek hai", "confirm kar do"
+      - 'booking_cancelled'    — "no cancel", "rehne do"
+    """
+
+    proposed_providers: list[dict[str, Any]]
+    """
+    Full ranked list of providers returned by MatchingAgent for the current
+    booking intent. Persisted so objection turns can serve the next provider
+    without re-querying the database.
+    """
+
+    active_provider_index: int
+    """
+    Index into proposed_providers currently being presented to the user.
+    Starts at 0 (top recommendation), increments on 'request_alternative'.
+    """
+
+    rejected_provider_ids: list[int]
+    """
+    Provider IDs the user has explicitly rejected in this session.
+    MatchingAgent filters these out when running a fresh search.
+    """
+
     # ── Reasoning Audit & Error Handling ─────────────────────────────────────
     trace_steps: list[dict[str, Any]]
     """
@@ -90,3 +135,4 @@ class KhidmatState(TypedDict):
 
     error: str | None
     """Error message or code if pipeline routing or execution encounters a failure."""
+
