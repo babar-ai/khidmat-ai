@@ -51,12 +51,14 @@ def register_provider(body: ProviderRegister, db: Session = Depends(get_db)):
         # location_name provided — geocode it (schema validator guarantees one must exist)
         try:
             lat, lng = geocode_location(body.location_name)  # type: ignore[arg-type]
+
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
     # ── Step 2: Duplicate CNIC check ──────────────────────────────────────────
     # One registration per person — CNIC is the unique identity
     existing = db.query(Provider).filter(Provider.cnic == body.cnic).first()
+    
     if existing:
         raise HTTPException(
             status_code=409,

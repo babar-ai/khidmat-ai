@@ -15,8 +15,11 @@ import time
 import uuid
 from typing import Any
 
+# pyrefly: ignore [missing-import]
 from psycopg_pool import ConnectionPool
+# pyrefly: ignore [missing-import]
 from langgraph.checkpoint.postgres import PostgresSaver       
+# pyrefly: ignore [missing-import]
 from langgraph.graph import END, START, StateGraph
 
 from agents.state import KhidmatState
@@ -55,9 +58,10 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
     prev_history = list(state.get("chat_history") or [])
     proposed_providers = list(state.get("proposed_providers") or [])
 
+
+
     # If providers were already proposed, check if the user is switching to a different category
     if proposed_providers:
-        req_lower = request_text.lower()
         other_categories = [c for c in VALID_CATEGORIES if c != prev_service]
         switch_detected = any(
             cat.replace("_", " ") in req_lower or cat in req_lower
@@ -74,7 +78,7 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
                 switch_detected = True
             elif "paint" in req_lower and prev_service != "painter":
                 switch_detected = True
-            elif ("ac" in req_lower or "fridge" in req_lower) and prev_service != "ac_technician":
+            elif "ac" in req_lower and prev_service != "ac_technician":
                 switch_detected = True
 
         if not switch_detected:
@@ -108,7 +112,11 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
     else:
         context_str = "No prior context (first turn)."
 
-    user_prompt = f"{context_str}\n\nNew User Message: \"{request_text}\""
+    user_prompt = (
+        f"{context_str}\n\n"
+        f"New User Message: \"{request_text}\"\n\n"
+        f"REMINDER: Your followup_question MUST strictly match the language and script of 'New User Message' above (Roman Urdu, Urdu script, or English)!"
+    )
 
     try:
         extracted = openai_service.extract_structured_json(
@@ -156,27 +164,42 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
             if not has_timing:
                 missing_slots.append("timing")
 
-        # STRICT PYTHON ENFORCEMENT: Never rely on LLM boolean alone!
-        # Both LLM AND Python must confirm all 3 mandatory slots (service, location, timing) are satisfied
+        # STRICT PYTHON ENFORCEMENT:
+        # All 3 mandatory slots (service, location, timing) are satisfied
         is_ready = (
             has_service
             and has_location
             and has_timing
             and not is_greeting
             and len(missing_slots) == 0
-            and bool(extracted.get("is_ready_to_book", True))
         )
+
 
         followup_question = extracted.get("followup_question")
 
-        # Fallback question if missing slots but LLM didn't generate one
+        # Fallback question if missing slots but LLM didn't generate one (localized by language)
         if not is_ready and not followup_question:
-            if "timing" in missing_slots:
-                followup_question = "When would you like the service provider to visit? (e.g. urgent/now, today evening, or tomorrow)"
-            elif "location" in missing_slots:
-                followup_question = "Which sector or area in Islamabad are you located in? (e.g. G-13 or F-10)"
-            elif "service" in missing_slots:
-                followup_question = "Which service do you need? We provide AC & Fridge, Plumber, Electrician, Carpenter, Cleaner, and Painter."
+            if language == "ur":
+                if "timing" in missing_slots:
+                    followup_question = "آپ کس وقت سروس فراہم کرنے والے کو بلانا چاہتے ہیں؟ (مثلاً فوری/ابھی، آج شام، یا کل)"
+                elif "location" in missing_slots:
+                    followup_question = "آپ اسلام آباد کے کس سیکٹر یا علاقے میں ہیں؟ (مثلاً G-13 یا F-10)"
+                elif "service" in missing_slots:
+                    followup_question = "آپ کو کس سروس کی ضرورت ہے؟ ہمارے پاس اے سی، پلمبر، الیکٹریشن، کارپینٹر، کلینر اور پینٹر دستیاب ہیں۔"
+            elif language == "roman_ur":
+                if "timing" in missing_slots:
+                    followup_question = "Technician kab visit kare? (e.g. urgent/abhi, aaj shaam, ya kal subah?)"
+                elif "location" in missing_slots:
+                    followup_question = "Aap Islamabad ke kis sector ya area mein hain? (e.g. G-13 ya F-10)"
+                elif "service" in missing_slots:
+                    followup_question = "Aap ko kis service ki zaroorat hai? Hamare paas AC Repair, Plumber, Electrician, Carpenter, Cleaner, aur Painter dastiyab hain."
+            else:
+                if "timing" in missing_slots:
+                    followup_question = "When would you like the service provider to visit? (e.g. urgent/now, today evening, or tomorrow)"
+                elif "location" in missing_slots:
+                    followup_question = "Which sector or area in Islamabad are you located in? (e.g. G-13 or F-10)"
+                elif "service" in missing_slots:
+                    followup_question = "Which service do you need? We provide AC Repair, Plumber, Electrician, Carpenter, Cleaner, and Painter."
 
         duration_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -589,7 +612,8 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
         f"Recent Conversation:\n{history_str}\n\n"
         f"Currently Recommended Provider:\n{curr_str}\n\n"
         f"Other Available Providers in System:\n{alt_str}\n\n"
-        f"User Message: \"{request_text}\""
+        f"User Message: \"{request_text}\"\n\n"
+        f"REMINDER: Your reply_message MUST strictly match the language and script of 'User Message' above (Roman Urdu, Urdu script, or English)!"
     )
 
     try:
@@ -603,6 +627,23 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
         dialogue_act = conv_output.get("dialogue_act") or "other"
         reply_message = conv_output.get("reply_message") or "I understand. How would you like to proceed?"
         advance_provider = bool(conv_output.get("advance_provider"))
+
+        # Explicit Affirmative confirmation check
+        AFFIRMATIVE_WORDS = {
+            "yes", "haan", "theek hai", "thek hai", "ok", "okay",
+            "confirm", "confirmed", "book", "book him", "book them",
+            "book kar do", "book kardo", "kar do", "kardo", "kar dein",
+            "proceed", "sure", "yep", "yeah", "ji haan", "ji",
+            "haan kardo", "chalo", "done", "perfect",
+        }
+        clean_req = request_text.strip().lower().rstrip("!.,?")
+        is_explicit_affirmative = (
+            clean_req in AFFIRMATIVE_WORDS
+            or any(clean_req.startswith(w) for w in ["yes", "haan", "theek hai", "ok", "confirm", "book"])
+        )
+
+        if is_explicit_affirmative and not dialogue_act.startswith("objection") and dialogue_act != "request_alternative":
+            dialogue_act = "booking_confirmed"
 
         # Update history
         updated_history = list(chat_history)

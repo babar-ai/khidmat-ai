@@ -85,6 +85,7 @@ def handle_request(body: ServiceRequest):
         detail_payload = {
             "message": question,
             "session_id": session_id,
+            "partial_intent": intent_data,
             "missing_slots": intent_data.get("missing_slots", []),
             "is_greeting": is_greeting,
             "dialogue_act": dialogue_act,
@@ -113,15 +114,32 @@ def handle_request(body: ServiceRequest):
 
     print(f"✅ [BOOKED] Provider: {top_provider['name']} | Code: {booking['booking_code']}")
 
+    lang = intent_data.get("language") or "roman_ur"
+    reply_msg = result.get("followup_question")
+    if reply_msg and any(w in reply_msg.lower() for w in ["booking", "confirm", "rabta", "raabta", "shukriya", "zabardast", "کامیاب", "بکنگ"]):
+        confirmation_msg = f"{reply_msg}\nBooking Code: {booking['booking_code']}"
+    elif lang == "ur":
+        confirmation_msg = (
+            f"✅ بکنگ کنفرم ہو گئی ہے! {top_provider['name']} جلد آپ کے پاس پہنچے گا۔ "
+            f"آپ کا بکنگ کوڈ ہے: {booking['booking_code']}۔"
+        )
+    elif lang == "roman_ur":
+        confirmation_msg = (
+            f"✅ Booking confirm ho gayi! {top_provider['name']} jald aap se rabta karega. "
+            f"Aap ka booking code hai: {booking['booking_code']}."
+        )
+    else:
+        confirmation_msg = (
+            f"✅ Booking confirmed! {top_provider['name']} will be with you soon. "
+            f"Your booking code is {booking['booking_code']}."
+        )
+
     return ServiceResponse(
         session_id=session_id,
         intent=IntentResult(**intent_data),
         provider=ProviderSummary(**top_provider),
         booking=BookingRead(**booking),
         trace=[TraceStep(**s) for s in (result.get("trace_steps") or [])],
-        message=(
-            f"✅ Booking confirmed! {top_provider['name']} will be with you soon. "
-            f"Your booking code is {booking['booking_code']}."
-        ),
+        message=confirmation_msg,
     )
 

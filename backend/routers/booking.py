@@ -18,6 +18,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["Bookings"])             #"Create a group of booking-related API endpoints, put /api/v1 before all their URLs, and display them under Bookings in the API documentation. name "api/v1" is not requried or reserved keyword 
 
 
+@router.get("/bookings", response_model=list[BookingRead])
+def list_bookings(
+    user_id: str | None = None,
+    session_id: str | None = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """Fetch bookings, optionally filtered by user_id or session_id."""
+    query = db.query(Booking)
+    if user_id:
+        query = query.filter(Booking.user_id == user_id)
+    if session_id:
+        query = query.filter(Booking.session_id == session_id)
+    return query.order_by(Booking.created_at.desc()).limit(limit).all()
+
+
 @router.get("/booking/{booking_id}", response_model=BookingRead)    # here response model tells FastAPI, whatever this function returns, make sure the API response follows the BookingRead schema
 def get_booking(booking_id: int, db: Session = Depends(get_db)):
 
