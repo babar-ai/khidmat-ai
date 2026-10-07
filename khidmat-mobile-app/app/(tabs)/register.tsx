@@ -22,6 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { registerProvider } from '@/lib/api/khidmatApi';
 import type { ProviderRegisterPayload } from '@/lib/api/khidmatApi';
+import { useLocationStore } from '@/lib/stores/useLocationStore';
+import * as Haptics from 'expo-haptics';
 
 // ── Service categories (must match backend enum) ──────────────────────────────
 const CATEGORIES = [
@@ -38,19 +40,24 @@ function Field({
   label,
   required,
   hint,
+  rightAction,
   children,
 }: {
   label: string;
   required?: boolean;
   hint?: string;
+  rightAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <View className="mb-5">
-      <Text className="mb-1.5 text-sm font-semibold text-gray-800">
-        {label}
-        {required && <Text className="text-red-500"> *</Text>}
-      </Text>
+      <View className="mb-1.5 flex-row items-center justify-between">
+        <Text className="text-sm font-semibold text-gray-800">
+          {label}
+          {required && <Text className="text-red-500"> *</Text>}
+        </Text>
+        {rightAction}
+      </View>
       {children}
       {hint && <Text className="mt-1.5 text-xs text-gray-400">{hint}</Text>}
     </View>
@@ -132,6 +139,7 @@ export default function RegisterScreen() {
   const [city, setCity]                   = useState('Islamabad');
   const [category, setCategory]           = useState('');
   const [locationName, setLocationName]   = useState('');
+  const [gpsCoords, setGpsCoords]         = useState<{ latitude: number; longitude: number } | null>(null);
   const [description, setDescription]     = useState('');
   const [cnic, setCnic]                   = useState('');
   const [businessReg, setBusinessReg]     = useState('');
@@ -141,9 +149,27 @@ export default function RegisterScreen() {
   const [registered, setRegistered]       = useState(false);
   const [registeredName, setRegisteredName] = useState('');
 
+  const { coordinates, requestLocationPermission, isFetching } = useLocationStore();
+
+  const handleUseGps = async () => {
+    Haptics.selectionAsync();
+    let coords = coordinates;
+    if (!coords) {
+      await requestLocationPermission();
+      coords = useLocationStore.getState().coordinates;
+    }
+
+    if (coords) {
+      setGpsCoords({ latitude: coords.latitude, longitude: coords.longitude });
+      setLocationName(`GPS Location (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`);
+    } else {
+      Alert.alert('GPS Unavailable', 'Please enable location permissions in settings or enter your area name.');
+    }
+  };
+
   const handleReset = () => {
     setName(''); setPhone(''); setWhatsapp(''); setCity('Islamabad');
-    setCategory(''); setLocationName(''); setDescription('');
+    setCategory(''); setLocationName(''); setGpsCoords(null); setDescription('');
     setCnic(''); setBusinessReg('');
     setRegistered(false);
     setRegisteredName('');
@@ -155,16 +181,18 @@ export default function RegisterScreen() {
     if (!name.trim())         errors.push('Shop / company name is required.');
     if (!phone.trim())        errors.push('Phone number is required.');
     if (!category)            errors.push('Please select your service category.');
-    if (!locationName.trim()) errors.push('Location is required (e.g. "G-13, Islamabad").');
+    if (!locationName.trim() && !gpsCoords) errors.push('Location is required (e.g. "G-13, Islamabad" or tap GPS).');
     if (!city.trim())         errors.push('City is required.');
     if (!cnic.trim())         errors.push('CNIC is required.');
     if (cnic.trim().length < 13) errors.push('CNIC must be at least 13 characters.');
 
     if (errors.length > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       Alert.alert('Please fix these fields', errors.join('\n'));
       return;
     }
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSubmitting(true);
     try {
       const payload: ProviderRegisterPayload = {
@@ -173,16 +201,20 @@ export default function RegisterScreen() {
         whatsapp_number:     whatsapp.trim() || undefined,
         city:                city.trim(),
         category,
-        location_name:       locationName.trim(),
+        location_name:       locationName.trim() || undefined,
+        latitude:            gpsCoords?.latitude,
+        longitude:           gpsCoords?.longitude,
         description:         description.trim() || undefined,
         cnic:                cnic.trim(),
         business_reg_number: businessReg.trim() || undefined,
       };
 
       const result = await registerProvider(payload);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setRegisteredName(result.name);
       setRegistered(true);
     } catch (err: unknown) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message = err instanceof Error ? err.message : 'Something went wrong.';
       Alert.alert('Registration Failed', message);
     } finally {
@@ -275,7 +307,10 @@ export default function RegisterScreen() {
                   return (
                     <Pressable
                       key={cat.value}
-                      onPress={() => setCategory(cat.value)}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setCategory(cat.value);
+                      }}
                       className={`flex-row items-center gap-1.5 rounded-xl border px-3 py-2.5 active:opacity-80 ${
                         isSelected
                           ? 'border-orange-400 bg-orange-50'
@@ -320,21 +355,46 @@ export default function RegisterScreen() {
             <Field
               label="Area / Location"
               required
-              hint="Type your area name — we'll find the coordinates automatically"
+              hint="Type your area name (e.g. Barakaw, Bani Gala, G-13) or tap Use GPS"
+              rightAction={
+                <Pressable
+                  onPress={handleUseGps}
+                  className="flex-row items-center rounded-lg bg-orange-50 px-2.5 py-1 border border-orange-200/80 active:bg-orange-100"
+                >
+                  <Ionicons name="navigate" size={12} color="#EA580C" style={{ marginRight: 4 }} />
+                  <Text className="text-xs font-semibold text-orange-700">
+                    {isFetching ? 'Locating...' : 'Use My GPS'}
+                  </Text>
+                </Pressable>
+              }
             >
               <View className="flex-row items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                 <Ionicons name="location-outline" size={18} color="#9CA3AF" />
                 <TextInput
                   value={locationName}
-                  onChangeText={setLocationName}
-                  placeholder='e.g. "G-13, Islamabad" or "F-10 Markaz"'
+                  onChangeText={(text) => {
+                    setLocationName(text);
+                    setGpsCoords(null); // Clear raw GPS if user typed manually
+                  }}
+                  placeholder='e.g. "Barakaw", "Bani Gala", or "G-13"'
                   placeholderTextColor="#9CA3AF"
                   autoCapitalize="words"
                   autoCorrect={false}
                   className="flex-1 text-[15px] text-gray-900"
                 />
+                {locationName.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      setLocationName('');
+                      setGpsCoords(null);
+                    }}
+                  >
+                    <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                  </Pressable>
+                )}
               </View>
             </Field>
+
 
             {/* ── Section: Verification ──────────────────────────────────── */}
             <Text className="mb-4 mt-2 text-xs font-bold uppercase tracking-wider text-gray-400">

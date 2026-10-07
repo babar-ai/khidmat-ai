@@ -15,44 +15,44 @@ export function ExtractedFieldsRow({
 }: ExtractedFieldsRowProps) {
   const fields = [
     {
-      icon: 'construct' as const,
-      label: service ?? 'Unknown',
-      color: service ? 'bg-primary-100 text-primary-800' : 'bg-gray-200 text-gray-500',
+      icon: 'construct-outline' as const,
+      label: service ?? 'Pending',
+      filled: Boolean(service),
+      badgeStyle: service
+        ? 'bg-orange-100/80 border-orange-200 text-orange-900'
+        : 'bg-gray-200/60 border-gray-300/50 text-gray-500',
+      iconColor: service ? '#EA580C' : '#9CA3AF',
     },
     {
-      icon: 'location' as const,
-      label: location ?? 'Unknown',
-      color: location ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500',
+      icon: 'location-outline' as const,
+      label: location ?? 'Pending',
+      filled: Boolean(location),
+      badgeStyle: location
+        ? 'bg-blue-100/80 border-blue-200 text-blue-900'
+        : 'bg-gray-200/60 border-gray-300/50 text-gray-500',
+      iconColor: location ? '#2563EB' : '#9CA3AF',
     },
     {
-      icon: 'time' as const,
-      label: time ?? 'Unknown',
-      color: time ? 'bg-purple-100 text-purple-800' : 'bg-gray-200 text-gray-500',
+      icon: 'time-outline' as const,
+      label: time ?? 'Pending',
+      filled: Boolean(time),
+      badgeStyle: time
+        ? 'bg-purple-100/80 border-purple-200 text-purple-900'
+        : 'bg-gray-200/60 border-gray-300/50 text-gray-500',
+      iconColor: time ? '#9333EA' : '#9CA3AF',
     },
   ];
 
   return (
-    <View className="mt-2 flex-row flex-wrap gap-2">
-      {fields.map((field) => (
+    <View className="mt-2.5 flex-row flex-wrap gap-2">
+      {fields.map((field, idx) => (
         <View
-          key={field.icon}
-          className={`flex-row items-center rounded-full px-3 py-1.5 ${field.color.split(' ')[0]}`}
+          key={idx}
+          className={`flex-row items-center rounded-xl border px-2.5 py-1.5 ${field.badgeStyle.split(' ')[0]} ${field.badgeStyle.split(' ')[1]}`}
         >
-          <Ionicons
-            name={field.icon}
-            size={13}
-            color={
-              field.color.includes('primary')
-                ? '#9A3412'
-                : field.color.includes('blue')
-                  ? '#1e40af'
-                  : field.color.includes('purple')
-                    ? '#6b21a8'
-                    : '#6b7280'
-            }
-          />
+          <Ionicons name={field.icon} size={13} color={field.iconColor} />
           <Text
-            className={`ml-1.5 text-xs font-semibold capitalize ${field.color.split(' ')[1]}`}
+            className={`ml-1.5 text-xs font-semibold capitalize ${field.badgeStyle.split(' ')[2]}`}
           >
             {field.label}
           </Text>
@@ -61,3 +61,4 @@ export function ExtractedFieldsRow({
     </View>
   );
 }
+

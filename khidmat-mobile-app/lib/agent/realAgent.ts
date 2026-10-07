@@ -189,15 +189,39 @@ export async function* runAgent(
         availableSlots:  ['10:00 AM', '2:00 PM', '5:00 PM'],
       };
 
+      const scheduledSlot = intent.scheduled_text || 'Tomorrow, 10:00 AM';
+
       yield {
         type: 'recommendation',
         provider:          mappedProvider,
         distanceKm:        providerData.distance_km ?? 0,  // ← real field
         reasoning:         `Top-rated ${mappedProvider.category.replace('_', ' ')} nearby with a ${mappedProvider.rating} star rating.`,
-        suggestedSlot:     '10:00 AM',
-        dayLabel:          'Tomorrow',
+        suggestedSlot:     scheduledSlot,
+        dayLabel:          'Scheduled',
         scheduledTimestamp: Date.now() + 86_400_000, // tomorrow
       };
+
+      // ── Step 5: If backend confirmed a booking, stream confirmed events ─────
+      if (data.booking) {
+        await delay(500);
+        yield {
+          type: 'booking',
+          provider: mappedProvider,
+          slot: scheduledSlot,
+        };
+        await delay(400);
+
+        yield {
+          type: 'confirmed',
+          bookingId: data.booking.booking_code ?? `b_${data.booking.id}`,
+        };
+        await delay(200);
+
+        yield {
+          type: 'reminder_scheduled',
+          at: `1 hour before ${scheduledSlot}`,
+        };
+      }
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
