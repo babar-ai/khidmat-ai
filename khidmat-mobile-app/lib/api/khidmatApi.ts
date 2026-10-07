@@ -16,23 +16,25 @@ import { useLocationStore } from '@/lib/stores/useLocationStore';
  * so it never fails with "failed to connect to localhost/127.0.0.1:8000".
  */
 export function getApiBaseUrl(): string {
-  let url = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').trim();
-
-  // Extract Metro bundler host IP if available (e.g. 10.125.107.241)
+  // Extract Metro bundler host IP if available (e.g. 192.168.0.106)
   const hostUri = Constants.expoConfig?.hostUri;
   const metroHost = hostUri ? hostUri.split(':')[0] : null;
 
-  if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
-    if (Platform.OS === 'android') {
-      url = metroHost ? `http://${metroHost}:8000` : 'http://10.0.2.2:8000';
-    } else if (Platform.OS === 'ios') {
-      url = metroHost ? `http://${metroHost}:8000` : 'http://localhost:8000';
-    } else {
-      url = 'http://localhost:8000';
-    }
+  // When running via Expo Go on Android or iOS, Metro's host IP is the exact PC running FastAPI
+  if (metroHost && Platform.OS !== 'web') {
+    return `http://${metroHost}:8000`;
   }
 
-  return url.replace(/\/$/, '');
+  let url = (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').trim();
+  if (url && !url.includes('localhost') && !url.includes('127.0.0.1')) {
+    return url.replace(/\/$/, '');
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8000';
+  }
+
+  return 'http://localhost:8000';
 }
 
 // ── Types mirroring backend schemas ─────────────────────────────────────────

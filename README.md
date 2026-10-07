@@ -1,6 +1,5 @@
-# Khidmat AI (Ø®Ø¯Ù…Øª) â€” Agentic Service Orchestrator
-`	ext
-> AI-driven, multi-turn home services booking platform built specifically for Pakistan. Users can converse naturally in **Urdu (Ø§Ø±Ø¯Ùˆ)**, **Roman Urdu**, or **English** to discover, evaluate, and book verified local service providers.
+# Khidmat AI (خدمت) — Agentic Service Orchestrator
+> AI-driven, multi-turn home services booking platform built specifically for Pakistan. Users can converse naturally in **Urdu (اردو)**, **Roman Urdu**, or **English** to discover, evaluate, and book verified local service providers.
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org)
