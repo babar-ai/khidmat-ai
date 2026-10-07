@@ -131,7 +131,7 @@ export function ProviderCard({
       {/* Book button */}
       <Pressable
         onPress={handleBookPress}
-        className="mt-3.5 flex-row items-center justify-center rounded-xl bg-primary py-3 active:scale-[0.98] active:bg-primary-600 shadow-sm"
+        className="mt-3.5 flex-row items-center justify-center rounded-xl bg-primary py-3 active:bg-primary-600 active:opacity-80 shadow-sm"
       >
         <Ionicons name="calendar-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
         <Text className="text-[14px] font-bold text-white">
@@ -141,4 +141,5 @@ export function ProviderCard({
     </View>
   );
 }
+
 

@@ -18,7 +18,7 @@ export function ExamplePromptChip({ text, icon, onPress }: ExamplePromptChipProp
   return (
     <Pressable
       onPress={handlePress}
-      className="mb-2.5 flex-row items-center justify-between rounded-2xl border border-primary-200/80 bg-primary-50/70 px-4 py-3 active:scale-[0.99] active:bg-primary-100/90 shadow-2xs"
+      className="mb-2.5 flex-row items-center justify-between rounded-2xl border border-primary-200/80 bg-primary-50/70 px-4 py-3 active:bg-primary-100/90 active:opacity-80"
     >
       <View className="flex-1 flex-row items-center pr-2">
         {icon ? (

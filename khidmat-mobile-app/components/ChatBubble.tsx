@@ -39,14 +39,14 @@ export function ChatBubble({
       <View className="flex-row items-end max-w-[88%]">
         {/* Agent Avatar Icon */}
         {!isUser && showAvatar && (
-          <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shadow-xs">
+          <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
             <Ionicons name="sparkles" size={14} color="#F97316" />
           </View>
         )}
 
         {/* Chat Bubble Container */}
         <View
-          className={`flex-1 px-4 py-3 shadow-xs ${bubbleBg} ${
+          className={`flex-1 px-4 py-3 ${bubbleBg} ${
             isUser
               ? 'rounded-2xl rounded-br-xs'
               : 'rounded-2xl rounded-bl-xs'

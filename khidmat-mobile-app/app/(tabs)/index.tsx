@@ -125,10 +125,10 @@ function DotsLoader() {
 function TypingIndicator() {
   return (
     <View className="mb-3 flex-row items-end">
-      <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shadow-xs">
+      <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
         <Ionicons name="sparkles" size={14} color="#F97316" />
       </View>
-      <View className="rounded-2xl rounded-bl-xs bg-gray-100 px-4 py-3 flex-row items-center shadow-xs">
+      <View className="rounded-2xl rounded-bl-xs bg-gray-100 px-4 py-3 flex-row items-center">
         <DotsLoader />
         <Text className="ml-2.5 text-xs font-medium text-gray-500">
           Khidmat AI is thinking...
@@ -544,7 +544,7 @@ export default function ChatScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 + insets.bottom : 20}
       >
         {/* App Header */}
-        <View className="flex-row items-center justify-between border-b border-gray-100 bg-white/95 px-5 pb-3 pt-2">
+        <View className="flex-row items-center justify-between border-b border-gray-100 bg-white px-5 pb-3 pt-2">
           <View className="flex-row items-center">
             <View className="h-9 w-9 items-center justify-center rounded-full bg-primary-100/90 border border-primary-200/60 mr-2.5">
               <Ionicons name="flash" size={17} color="#F97316" />
@@ -630,7 +630,7 @@ export default function ChatScreen() {
           {showEmptyState ? (
             <View className="flex-1 justify-center px-1 pb-6">
               {/* Greeting Card */}
-              <View className="rounded-3xl border border-gray-100 bg-white p-5 shadow-xs">
+              <View className="rounded-3xl border border-gray-100 bg-white p-5">
                 <Text className="text-2xl font-extrabold text-gray-900">
                   Assalam-o-Alaikum 👋
                 </Text>
@@ -710,7 +710,7 @@ export default function ChatScreen() {
 
         {/* Contextual Smart Suggestion Chips */}
         {contextualSuggestions.length > 0 && (
-          <View className="border-t border-gray-100 bg-white/95 px-3 pt-2 pb-1">
+          <View className="border-t border-gray-100 bg-white px-3 pt-2 pb-1">
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -733,7 +733,7 @@ export default function ChatScreen() {
                       handleSend(suggestion);
                     }
                   }}
-                  className="rounded-full border border-primary-200 bg-primary-50/90 px-3.5 py-1.5 active:bg-primary-100 active:scale-95 shadow-2xs"
+                  className="rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 active:bg-primary-100 active:opacity-80"
                 >
                   <Text className="text-xs font-semibold text-primary-900">
                     {suggestion}
