@@ -179,25 +179,26 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
 
         # Fallback question if missing slots but LLM didn't generate one (localized by language)
         if not is_ready and not followup_question:
+            svc_name = (service_type or "service").replace("_", " ")
             if language == "ur":
-                if "timing" in missing_slots:
-                    followup_question = "آپ کس وقت سروس فراہم کرنے والے کو بلانا چاہتے ہیں؟ (مثلاً فوری/ابھی، آج شام، یا کل)"
-                elif "location" in missing_slots:
-                    followup_question = "آپ اسلام آباد کے کس سیکٹر یا علاقے میں ہیں؟ (مثلاً G-13 یا F-10)"
+                if "location" in missing_slots:
+                    followup_question = f"ضرور! میں آپ کے لیے سروس کا بندوبست کرتا ہوں۔ آپ کی لوکیشن یا سیکٹر کون سا ہے؟"
+                elif "timing" in missing_slots:
+                    followup_question = "ٹیکنیشن کس وقت وزٹ کرے؟ (مثلاً ابھی، آج شام، یا کل)"
                 elif "service" in missing_slots:
                     followup_question = "آپ کو کس سروس کی ضرورت ہے؟ ہمارے پاس اے سی، پلمبر، الیکٹریشن، کارپینٹر، کلینر اور پینٹر دستیاب ہیں۔"
             elif language == "roman_ur":
-                if "timing" in missing_slots:
-                    followup_question = "Technician kab visit kare? (e.g. urgent/abhi, aaj shaam, ya kal subah?)"
-                elif "location" in missing_slots:
-                    followup_question = "Aap Islamabad ke kis sector ya area mein hain? (e.g. G-13 ya F-10)"
+                if "location" in missing_slots:
+                    followup_question = f"Zaroor! Main {svc_name} arrange kar deta hoon. Aap ki location ya sector konsa hai?"
+                elif "timing" in missing_slots:
+                    followup_question = "Technician kab visit kare? (maslan abhi/urgent, aaj shaam, ya kal subah?)"
                 elif "service" in missing_slots:
                     followup_question = "Aap ko kis service ki zaroorat hai? Hamare paas AC Repair, Plumber, Electrician, Carpenter, Cleaner, aur Painter dastiyab hain."
             else:
-                if "timing" in missing_slots:
-                    followup_question = "When would you like the service provider to visit? (e.g. urgent/now, today evening, or tomorrow)"
-                elif "location" in missing_slots:
-                    followup_question = "Which sector or area in Islamabad are you located in? (e.g. G-13 or F-10)"
+                if "location" in missing_slots:
+                    followup_question = f"Sure! I'll help you find a {svc_name}. What's your location?"
+                elif "timing" in missing_slots:
+                    followup_question = "When would you like the technician to visit? (e.g. urgent/now, today evening, or tomorrow)"
                 elif "service" in missing_slots:
                     followup_question = "Which service do you need? We provide AC Repair, Plumber, Electrician, Carpenter, Cleaner, and Painter."
 

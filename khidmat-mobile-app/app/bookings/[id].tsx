@@ -122,27 +122,7 @@ export default function BookingDetailScreen() {
   const renderThreadEvent = (event: AgentEvent, index: number) => {
     switch (event.type) {
       case 'understanding':
-        return (
-          <ChatBubble key={index} side="agent">
-            <Text className="text-sm text-gray-900">
-              Got it, here&apos;s what I understood:
-            </Text>
-            <ExtractedFieldsRow
-              service={
-                event.extracted.service
-                  ? CATEGORY_LABEL[event.extracted.service] ??
-                    event.extracted.service
-                  : null
-              }
-              location={
-                event.usedDefaultLocation
-                  ? `${event.extracted.location} (your home)`
-                  : event.extracted.location
-              }
-              time={event.extracted.time}
-            />
-          </ChatBubble>
-        );
+        return null;
       case 'searching':
         return (
           <ChatBubble key={index} side="agent">

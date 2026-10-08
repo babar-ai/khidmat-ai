@@ -53,20 +53,6 @@ export async function* runAgent(
     if (res.status === 400) {
       const errorData = await res.json().catch(() => ({}));
       if (errorData.detail?.message && errorData.detail.message.toLowerCase().includes("location")) {
-        const partial = errorData.detail.partial_intent;
-        if (partial) {
-           yield {
-            type: 'understanding',
-            extracted: { 
-              service: mapCategory(partial.service_type || ''), 
-              location: null, 
-              time: partial.requested_time, 
-              resolvedSlot: null 
-            },
-            usedDefaultLocation: false,
-          };
-        }
-
         yield {
           type: 'awaiting_user',
           question: 'Which sector should I look in? For example, G-13 or F-10.',
@@ -101,13 +87,6 @@ export async function* runAgent(
       time: intent.requested_time,
       resolvedSlot: null,
     };
-
-    yield {
-      type: 'understanding',
-      extracted,
-      usedDefaultLocation: false,
-    };
-    await delay(500);
 
     yield {
       type: 'searching',

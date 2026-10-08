@@ -95,18 +95,6 @@ export async function* runAgent(
           detail?.dialogue_act ||
           detail?.missing_slots)
       ) {
-        if (detail?.partial_intent?.service_type) {
-          yield {
-            type: 'understanding',
-            extracted: {
-              service: mapCategory(detail.partial_intent.service_type),
-              location: detail.partial_intent.location_text ?? null,
-              time: detail.partial_intent.scheduled_text ?? null,
-              resolvedSlot: null,
-            },
-            usedDefaultLocation: false,
-          };
-        }
         yield {
           type: 'awaiting_user',
           question: message,
@@ -150,18 +138,7 @@ export async function* runAgent(
 
     const frontendCategory = mapCategory(intent.service_type);
 
-    // ── Step 1: Show understanding ──────────────────────────────────────────
-    const extracted: ExtractedIntent = {
-      service:      frontendCategory,
-      location:     intent.location_text ?? null,   // ← real field (not "intent.location")
-      time:         intent.scheduled_text ?? null,  // ← real field (not "intent.requested_time")
-      resolvedSlot: null,
-    };
-
-    yield { type: 'understanding', extracted, usedDefaultLocation: false };
-    await delay(400);
-
-    // ── Step 2: Show searching ──────────────────────────────────────────────
+    // ── Step 1: Show searching ──────────────────────────────────────────────
     yield {
       type: 'searching',
       near: intent.location_text ?? context.defaultLocation ?? 'your area',

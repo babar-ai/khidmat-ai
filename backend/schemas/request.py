@@ -23,7 +23,7 @@ class ServiceRequest(BaseModel):
 
     # The raw user message — Urdu, Roman Urdu, or English
     # Field(min_length=3) → FastAPI rejects requests shorter than 3 chars with a 422 error
-    text: str = Field(..., min_length=3, max_length=500, description="User's natural language request")
+    text: str = Field(..., min_length=1, max_length=500, description="User's natural language request")
 
     # Identifies who is making the request (from the mobile app session)
     user_id: str = Field(..., description="Unique user identifier from the mobile app")

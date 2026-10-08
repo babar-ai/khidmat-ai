@@ -193,6 +193,17 @@ export default function ChatScreen() {
 
   const addAgentMessage = useCallback(
     (event: AgentEvent) => {
+      // Retain internal booking state tracking without displaying confirmation card in chat UI
+      setAgentEvents((prev) => {
+        const next = [...prev, event];
+        agentEventsRef.current = next;
+        return next;
+      });
+
+      if (event.type === 'understanding') {
+        return;
+      }
+
       const msg: ChatMessage = {
         id: `agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         role: 'agent',
@@ -200,11 +211,6 @@ export default function ChatScreen() {
         timestamp: formatCurrentTime(),
       };
       setMessages((prev) => [...prev, msg]);
-      setAgentEvents((prev) => {
-        const next = [...prev, event];
-        agentEventsRef.current = next;
-        return next;
-      });
       if (event.type === 'confirmed') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -404,28 +410,9 @@ export default function ChatScreen() {
     (event: AgentEvent, isLast: boolean, timestamp: string) => {
       const showLoading = isLast && isProcessing;
       switch (event.type) {
-        case 'understanding': {
-          const { extracted, usedDefaultLocation } = event;
-          const locationLabel = usedDefaultLocation
-            ? `${extracted.location} (your home)`
-            : extracted.location;
-          return (
-            <ChatBubble side="agent" timestamp={timestamp}>
-              <Text className="text-[15px] font-medium leading-5 text-gray-900">
-                Got it, here&apos;s what I understood:
-              </Text>
-              <ExtractedFieldsRow
-                service={
-                  extracted.service
-                    ? CATEGORY_LABEL[extracted.service] ?? extracted.service
-                    : null
-                }
-                location={locationLabel}
-                time={extracted.time}
-              />
-            </ChatBubble>
-          );
-        }
+        case 'understanding':
+          // Internal booking state is retained internally and not rendered as status cards in the chat UI
+          return null;
 
         case 'searching':
           return (
@@ -677,15 +664,20 @@ export default function ChatScreen() {
             <>
               {messages.map((msg, i) => {
                 const isLast = i === messages.length - 1;
-                return (
-                  <FadeInSlide key={msg.id}>
-                    {msg.role === 'user' ? (
+                if (msg.role === 'user') {
+                  return (
+                    <FadeInSlide key={msg.id}>
                       <ChatBubble side="user" timestamp={msg.timestamp}>
                         {msg.text}
                       </ChatBubble>
-                    ) : (
-                      renderAgentEvent(msg.event, isLast, msg.timestamp)
-                    )}
+                    </FadeInSlide>
+                  );
+                }
+                const content = renderAgentEvent(msg.event, isLast, msg.timestamp);
+                if (!content) return null;
+                return (
+                  <FadeInSlide key={msg.id}>
+                    {content}
                   </FadeInSlide>
                 );
               })}
