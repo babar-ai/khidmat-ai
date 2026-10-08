@@ -25,6 +25,7 @@ type BookingsState = {
     id: string,
     status: 'confirmed' | 'reminded' | 'completed' | 'cancelled',
   ) => void;
+  rescheduleBooking: (id: string, newScheduledFor: string) => void;
   cancel: (id: string) => void;
   clear: () => void;
 };
@@ -39,6 +40,14 @@ export const useBookingsStore = create<BookingsState>()(
         set((state) => ({
           bookings: state.bookings.map((b) =>
             b.id === id ? { ...b, status } : b,
+          ),
+        })),
+      rescheduleBooking: (id, newScheduledFor) =>
+        set((state) => ({
+          bookings: state.bookings.map((b) =>
+            b.id === id || (!id && state.bookings.length > 0)
+              ? { ...b, scheduledFor: newScheduledFor }
+              : b,
           ),
         })),
       cancel: (id) =>

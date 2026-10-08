@@ -172,6 +172,8 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<RecommendationEvent | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const agentEventsRef = useRef<AgentEvent[]>([]);
@@ -179,6 +181,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const defaultLocation = useSettingsStore((s) => s.defaultLocation);
   const addBooking = useBookingsStore((s) => s.addBooking);
+  const rescheduleBooking = useBookingsStore((s) => s.rescheduleBooking);
 
   // GPS location state
   const { coordinates, permissionStatus, isFetching, requestLocationPermission } =
@@ -222,7 +225,11 @@ export default function ChatScreen() {
   const handleSend = useCallback(
     async (textToSend?: string) => {
       const text = (textToSend ?? inputText).trim();
-      if (!text || isProcessing) return;
+      if (!text || isProcessing || isConfirming) return;
+
+      if (pendingConfirmation) {
+        setPendingConfirmation(null);
+      }
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setInputText('');
@@ -277,19 +284,95 @@ export default function ChatScreen() {
             createdAt: Date.now(),
           });
         }
+
+        const rescheduleEvent = flowEvents.find(
+          (e): e is Extract<AgentEvent, { type: 'rescheduled' }> => e.type === 'rescheduled',
+        );
+        if (rescheduleEvent) {
+          rescheduleBooking(rescheduleEvent.bookingId, rescheduleEvent.newSlot);
+        }
+
+        // If the agent requested explicit confirmation, activate confirmation UI
+        const confirmRequestEvent = flowEvents.find(
+          (e): e is Extract<AgentEvent, { type: 'awaiting_user' }> =>
+            e.type === 'awaiting_user' &&
+            (e.question.toLowerCase().includes('confirm') ||
+              e.question.includes('کنفرم') ||
+              e.question.toLowerCase().includes('book karne lage') ||
+              e.question.toLowerCase().includes('about to book') ||
+              e.question.toLowerCase().includes('would you like me to confirm')),
+        );
+        if (confirmRequestEvent) {
+          const latestRec = agentEventsRef.current
+            .slice()
+            .reverse()
+            .find((e): e is RecommendationEvent => e.type === 'recommendation');
+          if (latestRec) {
+            setPendingConfirmation(latestRec);
+          }
+        }
       } catch (e) {
         console.error('Agent error:', e);
       } finally {
         setIsProcessing(false);
       }
     },
-    [inputText, isProcessing, defaultLocation, addAgentMessage, addBooking, scrollToBottom],
+    [inputText, isProcessing, isConfirming, pendingConfirmation, defaultLocation, addAgentMessage, addBooking, scrollToBottom],
   );
 
-  const handleBook = useCallback(
+  // ── Human-in-the-Loop Confirmation Step ─────────────────────────────────
+  const handleRequestConfirmation = useCallback(
+    (rec: RecommendationEvent) => {
+      if (isProcessing || isConfirming) return;
+      Haptics.selectionAsync();
+      setPendingConfirmation(rec);
+
+      const confirmQuestionMsg: ChatMessage = {
+        id: `agent_${Date.now()}`,
+        role: 'agent',
+        event: {
+          type: 'awaiting_user',
+          question: `You're about to book ${rec.provider.name} for ${CATEGORY_LABEL[rec.provider.category] ?? rec.provider.category} (${rec.dayLabel}, ${rec.suggestedSlot}). Would you like me to confirm this booking?`,
+          missing: 'service',
+        },
+        timestamp: formatCurrentTime(),
+      };
+      setMessages((prev) => [...prev, confirmQuestionMsg]);
+      scrollToBottom();
+    },
+    [isProcessing, isConfirming, scrollToBottom],
+  );
+
+  const handleCancelConfirmation = useCallback(() => {
+    if (isConfirming) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const cancelledProvider = pendingConfirmation?.provider;
+    setPendingConfirmation(null);
+
+    const cancelMsg: ChatMessage = {
+      id: `agent_${Date.now()}`,
+      role: 'agent',
+      event: {
+        type: 'awaiting_user',
+        question: cancelledProvider
+          ? `Booking not confirmed. ${cancelledProvider.name} is still available above, or you can request a different time or provider.`
+          : `Booking cancelled. Feel free to request another service or time whenever you're ready.`,
+        missing: 'service',
+      },
+      timestamp: formatCurrentTime(),
+    };
+    setMessages((prev) => [...prev, cancelMsg]);
+    scrollToBottom();
+  }, [pendingConfirmation, isConfirming, scrollToBottom]);
+
+  const handleConfirmBooking = useCallback(
     async (rec: RecommendationEvent) => {
-      if (isProcessing) return;
+      if (isConfirming || isProcessing) return;
+      setIsConfirming(true);
       setIsProcessing(true);
+      setPendingConfirmation(null);
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const bookingFlowEvents: AgentEvent[] = [];
 
@@ -311,7 +394,6 @@ export default function ChatScreen() {
         );
 
         if (confirmedEvent) {
-          resetConversationSession();
           addBooking({
             id: confirmedEvent.bookingId,
             providerId: rec.provider.id,
@@ -328,11 +410,13 @@ export default function ChatScreen() {
         }
       } catch (e) {
         console.error('Booking error:', e);
+        Alert.alert('Booking Error', 'Could not confirm the booking. Please try again.');
       } finally {
+        setIsConfirming(false);
         setIsProcessing(false);
       }
     },
-    [isProcessing, addAgentMessage, addBooking],
+    [isConfirming, isProcessing, addAgentMessage, addBooking],
   );
 
   const handleChipPress = useCallback(
@@ -343,7 +427,7 @@ export default function ChatScreen() {
   );
 
   const handleNewChat = useCallback(() => {
-    if (messages.length === 0 || isProcessing) return;
+    if (messages.length === 0 || isProcessing || isConfirming) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Start a new chat?',
@@ -356,6 +440,8 @@ export default function ChatScreen() {
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             resetConversationSession();
+            setPendingConfirmation(null);
+            setIsConfirming(false);
             setMessages([]);
             setAgentEvents([]);
             agentEventsRef.current = [];
@@ -364,7 +450,7 @@ export default function ChatScreen() {
         },
       ],
     );
-  }, [messages.length, isProcessing]);
+  }, [messages.length, isProcessing, isConfirming]);
 
   const handleGpsBadgePress = useCallback(async () => {
     Haptics.selectionAsync();
@@ -379,9 +465,21 @@ export default function ChatScreen() {
   const isConfirmed = agentEvents.some((e) => e.type === 'confirmed');
 
   const getContextualSuggestions = (): string[] => {
-    if (isProcessing || isConfirmed) return [];
+    if (isProcessing || isConfirming || isConfirmed) return [];
+
+    if (pendingConfirmation) {
+      return ['✅ Confirm Booking', '❌ Cancel'];
+    }
 
     if (lastEvent?.type === 'awaiting_user') {
+      const q = lastEvent.question.toLowerCase();
+      if (
+        q.includes('confirm') ||
+        q.includes('book karne lage') ||
+        q.includes('would you like me to confirm')
+      ) {
+        return ['✅ Confirm Booking', '❌ Cancel'];
+      }
       if (lastEvent.missing === 'location') {
         return hasGps
           ? ['📍 Use My GPS Location', 'G-13 Islamabad', 'F-10 Markaz', 'I-8 Rawalpindi']
@@ -396,7 +494,7 @@ export default function ChatScreen() {
     }
 
     if (lastEvent?.type === 'recommendation') {
-      return ['✅ Yes, confirm this booking', '🔄 Show another provider', 'Visiting charges kya hain?'];
+      return ['📅 Book Appointment', '🔄 Show another provider', 'Visiting charges kya hain?'];
     }
 
     return [];
@@ -415,42 +513,18 @@ export default function ChatScreen() {
           return null;
 
         case 'searching':
-          return (
-            <View>
-              <ChatBubble side="agent" timestamp={timestamp}>
-                <View className="flex-row items-center">
-                  <Ionicons name="search" size={15} color="#EA580C" style={{ marginRight: 6 }} />
-                  <Text className="text-[15px] text-gray-900 flex-1">
-                    Searching for {CATEGORY_LABEL[event.category] ?? event.category} near{' '}
-                    <Text className="font-semibold text-gray-900">{event.near}</Text>
-                  </Text>
-                </View>
-              </ChatBubble>
-              {showLoading && <TypingIndicator />}
-            </View>
-          );
+          // Search progress messages removed from user chat per Change 1
+          return null;
 
         case 'ranking':
-          return (
-            <View>
-              <ChatBubble side="agent" timestamp={timestamp}>
-                <View className="flex-row items-center">
-                  <Ionicons name="filter" size={15} color="#EA580C" style={{ marginRight: 6 }} />
-                  <Text className="text-[15px] text-gray-900 flex-1">
-                    Found {event.candidateCount} nearby providers. Ranking by distance,
-                    reviews, and availability.
-                  </Text>
-                </View>
-              </ChatBubble>
-              {showLoading && <TypingIndicator />}
-            </View>
-          );
+          // Ranking progress messages removed from user chat per Change 1
+          return null;
 
         case 'recommendation':
           return (
-            <ChatBubble side="agent" timestamp={timestamp}>
+            <ChatBubble side="agent" fullWidth timestamp={timestamp}>
               <Text className="mb-1 text-[15px] font-medium text-gray-900">
-                Here&apos;s the best matched provider for you:
+                Here&apos;s the best matched provider based on distance, reviews, rating, and availability:
               </Text>
               <ProviderCard
                 provider={event.provider}
@@ -458,7 +532,7 @@ export default function ChatScreen() {
                 reasoning={event.reasoning}
                 suggestedSlot={event.suggestedSlot}
                 dayLabel={event.dayLabel}
-                onBook={() => handleBook(event)}
+                onBook={() => handleRequestConfirmation(event)}
               />
             </ChatBubble>
           );
@@ -514,11 +588,32 @@ export default function ChatScreen() {
             </ChatBubble>
           );
 
+        case 'rescheduled':
+          return (
+            <ChatBubble side="agent" tone="success" timestamp={timestamp}>
+              <View className="flex-row items-center mb-1">
+                <Ionicons name="calendar-outline" size={18} color="#047857" style={{ marginRight: 6 }} />
+                <Text className="text-[15px] font-bold text-emerald-900 flex-1">
+                  Appointment Rescheduled
+                </Text>
+              </View>
+              <Text className="text-[14px] leading-5 text-gray-800">
+                {event.message}
+              </Text>
+              <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1 flex-row items-center">
+                <Ionicons name="time-outline" size={14} color="#065f46" style={{ marginRight: 4 }} />
+                <Text className="text-xs font-semibold text-emerald-800">
+                  New Time: {event.newSlot}
+                </Text>
+              </View>
+            </ChatBubble>
+          );
+
         default:
           return null;
       }
     },
-    [handleBook, isProcessing],
+    [handleRequestConfirmation, isProcessing],
   );
 
   const showEmptyState = messages.length === 0;
@@ -682,20 +777,76 @@ export default function ChatScreen() {
                 );
               })}
 
-              {/* Footer link after booking confirmed */}
-              {isConfirmed && (
+              {/* Human-in-the-Loop Booking Confirmation Card */}
+              {pendingConfirmation && (
                 <FadeInSlide>
-                  <Pressable
-                    onPress={() => router.push('/(tabs)/bookings')}
-                    className="mt-3 flex-row items-center justify-center rounded-2xl bg-primary-50 border border-primary-200/80 py-3 active:bg-primary-100"
-                  >
-                    <Ionicons name="calendar" size={16} color="#EA580C" style={{ marginRight: 6 }} />
-                    <Text className="text-xs font-bold text-primary-800">
-                      View this booking in your Bookings tab →
-                    </Text>
-                  </Pressable>
+                  <View className="my-2.5 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5 shadow-sm">
+                    <View className="flex-row items-start">
+                      <View className="h-9 w-9 items-center justify-center rounded-xl bg-amber-100 border border-amber-200/80 mr-2.5 flex-shrink-0">
+                        <Ionicons name="help-circle" size={18} color="#D97706" />
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="text-[14px] font-bold text-gray-900" numberOfLines={1}>
+                          Confirm Your Appointment
+                        </Text>
+                        <Text className="mt-1 text-[13px] leading-5 text-gray-700">
+                          You&apos;re about to book{' '}
+                          <Text className="font-semibold text-gray-900">{pendingConfirmation.provider.name}</Text>{' '}
+                          for{' '}
+                          <Text className="font-semibold text-gray-900">
+                            {CATEGORY_LABEL[pendingConfirmation.provider.category] ?? pendingConfirmation.provider.category}
+                          </Text>{' '}
+                          ({pendingConfirmation.dayLabel && pendingConfirmation.dayLabel !== 'Scheduled' && !pendingConfirmation.suggestedSlot.toLowerCase().includes(pendingConfirmation.dayLabel.toLowerCase())
+                            ? `${pendingConfirmation.dayLabel}, `
+                            : ''}
+                          {pendingConfirmation.suggestedSlot}).
+                        </Text>
+                        <Text className="mt-1 text-[13px] font-semibold text-amber-950">
+                          Would you like me to confirm this booking?
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View className="mt-3 flex-row items-center gap-2">
+                      <Pressable
+                        disabled={isConfirming || isProcessing}
+                        onPress={handleCancelConfirmation}
+                        className="flex-1 items-center justify-center rounded-xl border border-gray-300 bg-white py-2.5 px-2 active:bg-gray-100"
+                      >
+                        <Text className="text-xs font-bold text-gray-700 text-center" numberOfLines={1}>
+                          Cancel
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        disabled={isConfirming || isProcessing}
+                        onPress={() => handleConfirmBooking(pendingConfirmation)}
+                        className={`flex-1 flex-row items-center justify-center rounded-xl py-2.5 px-2 ${
+                          isConfirming ? 'bg-primary-400' : 'bg-primary active:bg-primary-600'
+                        } shadow-sm`}
+                      >
+                        {isConfirming ? (
+                          <DotsLoader />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name="checkmark-circle-outline"
+                              size={15}
+                              color="#FFFFFF"
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text className="text-xs font-bold text-white text-center" numberOfLines={1}>
+                              Confirm Booking
+                            </Text>
+                          </>
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
                 </FadeInSlide>
               )}
+
+
             </>
           )}
         </ScrollView>
@@ -711,6 +862,7 @@ export default function ChatScreen() {
               {contextualSuggestions.map((suggestion, idx) => (
                 <Pressable
                   key={idx}
+                  disabled={isConfirming || isProcessing}
                   onPress={() => {
                     Haptics.selectionAsync();
                     if (suggestion === '📍 Use My GPS Location') {
@@ -719,8 +871,17 @@ export default function ChatScreen() {
                       } else {
                         handleGpsBadgePress();
                       }
-                    } else if (suggestion.startsWith('✅ Yes, confirm') && lastRecEvent) {
-                      handleBook(lastRecEvent);
+                    } else if (suggestion === '✅ Confirm Booking') {
+                      const target = pendingConfirmation || lastRecEvent;
+                      if (target) {
+                        handleConfirmBooking(target);
+                      } else {
+                        handleSend('Confirm booking');
+                      }
+                    } else if (suggestion === '❌ Cancel') {
+                      handleCancelConfirmation();
+                    } else if (suggestion === '📅 Book Appointment' && lastRecEvent) {
+                      handleRequestConfirmation(lastRecEvent);
                     } else {
                       handleSend(suggestion);
                     }
@@ -742,7 +903,7 @@ export default function ChatScreen() {
           onChangeText={setInputText}
           onSend={() => handleSend()}
           placeholder="Type in English, Urdu, or Roman Urdu..."
-          disabled={isProcessing}
+          disabled={isProcessing || isConfirming}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

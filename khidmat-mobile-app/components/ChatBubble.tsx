@@ -7,6 +7,7 @@ type ChatBubbleProps = {
   tone?: 'default' | 'success';
   timestamp?: string;
   showAvatar?: boolean;
+  fullWidth?: boolean;
   children: React.ReactNode;
 };
 
@@ -15,6 +16,7 @@ export function ChatBubble({
   tone = 'default',
   timestamp,
   showAvatar = true,
+  fullWidth = false,
   children,
 }: ChatBubbleProps) {
   const isUser = side === 'user';
@@ -35,18 +37,18 @@ export function ChatBubble({
       : 'text-gray-900';
 
   return (
-    <View className={`mb-3 ${isUser ? 'items-end' : 'items-start'}`}>
-      <View className="flex-row items-end max-w-[88%]">
+    <View className={`mb-3 ${isUser ? 'items-end' : 'items-start'} ${fullWidth ? 'w-full' : ''}`}>
+      <View className={`flex-row items-end ${fullWidth ? 'w-full max-w-full' : 'max-w-[88%]'}`}>
         {/* Agent Avatar Icon */}
         {!isUser && showAvatar && (
-          <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+          <View className="mr-2 mb-1 h-7 w-7 items-center justify-center rounded-full bg-primary/10 border border-primary/20 flex-shrink-0">
             <Ionicons name="sparkles" size={14} color="#F97316" />
           </View>
         )}
 
         {/* Chat Bubble Container */}
         <View
-          className={`flex-1 px-4 py-3 ${bubbleBg} ${
+          className={`flex-1 ${fullWidth ? 'px-3 py-3' : 'px-4 py-3'} ${bubbleBg} ${
             isUser
               ? 'rounded-2xl rounded-br-xs'
               : 'rounded-2xl rounded-bl-xs'

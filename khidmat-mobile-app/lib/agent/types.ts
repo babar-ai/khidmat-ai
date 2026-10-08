@@ -31,4 +31,10 @@ export type AgentEvent =
     }
   | { type: 'booking'; provider: Provider; slot: string }
   | { type: 'confirmed'; bookingId: string }
-  | { type: 'reminder_scheduled'; at: string };
+  | { type: 'reminder_scheduled'; at: string }
+  | {
+      type: 'rescheduled';
+      bookingId: string;
+      newSlot: string;
+      message: string;
+    };

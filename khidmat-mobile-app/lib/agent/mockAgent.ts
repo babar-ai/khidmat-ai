@@ -88,20 +88,6 @@ export async function* runAgent(
       resolvedSlot: null,
     };
 
-    yield {
-      type: 'searching',
-      near: intent.location || 'your area',
-      category: frontendCategory,
-    };
-    await delay(500);
-
-    const providers = data.providers || [];
-    yield {
-      type: 'ranking',
-      candidateCount: providers.length || 3,
-    };
-    await delay(500);
-
     const topProvider = data.top_provider;
     if (topProvider) {
       const p = topProvider.provider || topProvider;

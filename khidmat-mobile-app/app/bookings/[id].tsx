@@ -165,6 +165,14 @@ export default function BookingDetailScreen() {
             </Text>
           </ChatBubble>
         );
+      case 'rescheduled':
+        return (
+          <ChatBubble key={index} side="agent" tone="success">
+            <Text className="text-sm font-semibold text-emerald-900">
+              📅 Rescheduled to {event.newSlot}
+            </Text>
+          </ChatBubble>
+        );
       default:
         return null;
     }
@@ -211,13 +219,13 @@ export default function BookingDetailScreen() {
       <View className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
         <View className="mb-3 flex-row items-center">
           <Ionicons name="time-outline" size={18} color="#6b7280" />
-          <Text className="ml-2 text-sm text-gray-700">
+          <Text className="ml-2 text-sm text-gray-700 flex-1">
             {booking.scheduledFor}
           </Text>
         </View>
         <View className="mb-3 flex-row items-center">
           <Ionicons name="location-outline" size={18} color="#6b7280" />
-          <Text className="ml-2 text-sm text-gray-700">{booking.sector}</Text>
+          <Text className="ml-2 text-sm text-gray-700 flex-1">{booking.sector}</Text>
         </View>
         {provider?.phone && (
           <Pressable
@@ -225,7 +233,7 @@ export default function BookingDetailScreen() {
             className="flex-row items-center active:opacity-60"
           >
             <Ionicons name="call-outline" size={18} color="#F97316" />
-            <Text className="ml-2 text-sm font-medium text-primary">
+            <Text className="ml-2 text-sm font-medium text-primary flex-1">
               {provider.phone}
             </Text>
           </Pressable>

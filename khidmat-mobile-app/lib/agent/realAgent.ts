@@ -84,6 +84,32 @@ export async function* runAgent(
         activeSessionId = detail.session_id;
       }
 
+      // If backend reports appointment rescheduling / slot modification
+      if (
+        detail &&
+        typeof detail === 'object' &&
+        (detail.dialogue_act === 'reschedule_requested' ||
+          detail.dialogue_act === 'slot_modification' ||
+          Boolean(detail.new_scheduled_text))
+      ) {
+        const bookingId =
+          detail.booking?.booking_code ??
+          (detail.booking?.id ? `b_${detail.booking.id}` : '');
+        const newSlot =
+          detail.new_scheduled_text ||
+          detail.booking?.scheduled_text ||
+          detail.partial_intent?.scheduled_text ||
+          'Updated schedule';
+
+        yield {
+          type: 'rescheduled',
+          bookingId,
+          newSlot,
+          message,
+        };
+        return;
+      }
+
       // If backend asks a follow-up question, greeting, or conversational reply
       if (
         detail &&
@@ -138,49 +164,37 @@ export async function* runAgent(
 
     const frontendCategory = mapCategory(intent.service_type);
 
-    // ── Step 1: Show searching ──────────────────────────────────────────────
-    yield {
-      type: 'searching',
-      near: intent.location_text ?? context.defaultLocation ?? 'your area',
-      category: frontendCategory,
-    };
-    await delay(400);
-
-    // ── Step 3: Show ranking ────────────────────────────────────────────────
-    yield { type: 'ranking', candidateCount: 1 };
-    await delay(400);
-
-    // ── Step 4: Show recommendation ─────────────────────────────────────────
+    // ── Direct Recommendation (Search/ranking progress messages hidden from chat) ──
     if (providerData) {
       const mappedProvider: Provider = {
-        id:              String(providerData.id),           // ← real field (not "provider_id")
+        id:              String(providerData.id),
         name:            providerData.name,
         category:        frontendCategory,
         rating:          providerData.rating ?? 0,
-        reviewCount:     0,                                 // not in ProviderSummary — set to 0
+        reviewCount:     0,
         yearsExperience: 0,
         priceRange:      'PKR 800-3000',
-        phone:           '',                                // not in ProviderSummary
+        phone:           '',
         sector:          providerData.city ?? 'Islamabad',
-        coords:          { lat: 33.6844, lng: 73.0479 },   // default Islamabad center
+        coords:          { lat: 33.6844, lng: 73.0479 },
         availableSlots:  ['10:00 AM', '2:00 PM', '5:00 PM'],
       };
 
       const scheduledSlot = intent.scheduled_text || 'Tomorrow, 10:00 AM';
 
-      yield {
-        type: 'recommendation',
-        provider:          mappedProvider,
-        distanceKm:        providerData.distance_km ?? 0,  // ← real field
-        reasoning:         `Top-rated ${mappedProvider.category.replace('_', ' ')} nearby with a ${mappedProvider.rating} star rating.`,
-        suggestedSlot:     scheduledSlot,
-        dayLabel:          'Scheduled',
-        scheduledTimestamp: Date.now() + 86_400_000, // tomorrow
-      };
-
-      // ── Step 5: If backend confirmed a booking, stream confirmed events ─────
-      if (data.booking) {
-        await delay(500);
+      if (!data.booking) {
+        // Step 1: Show recommendation (provider card) awaiting explicit user confirmation
+        yield {
+          type: 'recommendation',
+          provider:          mappedProvider,
+          distanceKm:        providerData.distance_km ?? 0,
+          reasoning:         `Top-rated ${mappedProvider.category.replace('_', ' ')} nearby with a ${mappedProvider.rating} star rating.`,
+          suggestedSlot:     scheduledSlot,
+          dayLabel:          'Scheduled',
+          scheduledTimestamp: Date.now() + 86_400_000,
+        };
+      } else {
+        // Step 2: If booking was confirmed (e.g. conversational confirmation), stream booking events
         yield {
           type: 'booking',
           provider: mappedProvider,
@@ -211,20 +225,43 @@ export async function* runAgent(
   }
 }
 
-// ── Booking confirmation ─────────────────────────────────────────────────────
-// The backend books automatically during /request.
-// This just streams the UI confirmation steps for a smooth experience.
-
+// ── Human-in-the-Loop Booking Confirmation ──────────────────────────────────
+// Executes the actual booking mutation in the backend database only AFTER
+// the user has explicitly confirmed.
 export async function* confirmBooking(
   provider: Provider,
   slot: string,
   dayLabel: string,
 ): AsyncGenerator<AgentEvent> {
   yield { type: 'booking', provider, slot };
-  await delay(800);
 
-  yield { type: 'confirmed', bookingId: `b_${Date.now()}` };
-  await delay(300);
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `Confirm booking with ${provider.name} for ${slot}`,
+        user_id: 'user_mobile',
+        session_id: activeSessionId,
+      }),
+    });
 
-  yield { type: 'reminder_scheduled', at: `1 hour before ${dayLabel} ${slot}` };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Booking API failed (${res.status}): ${errText}`);
+    }
+
+    const data = await res.json();
+    const bookingCode =
+      data?.booking?.booking_code ?? `KB-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    await delay(400);
+    yield { type: 'confirmed', bookingId: bookingCode };
+
+    await delay(200);
+    yield { type: 'reminder_scheduled', at: `1 hour before ${dayLabel} ${slot}` };
+  } catch (err: unknown) {
+    console.error('confirmBooking error:', err);
+    throw err;
+  }
 }

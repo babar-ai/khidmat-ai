@@ -96,28 +96,30 @@ export default function BookingsScreen() {
             className="mb-3 flex-row items-center rounded-2xl border border-gray-100 bg-white p-4 shadow-sm active:bg-gray-50"
           >
             {/* Category emoji */}
-            <View className="h-11 w-11 items-center justify-center rounded-full bg-primary-50">
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-primary-50 flex-shrink-0">
               <Text className="text-xl">
                 {CATEGORY_EMOJI[booking.category] ?? '🛠'}
               </Text>
             </View>
 
             {/* Info */}
-            <View className="ml-3 flex-1">
-              <Text className="text-[15px] font-bold text-gray-900">
+            <View className="ml-3 flex-1 min-w-0 mr-2">
+              <Text className="text-[15px] font-bold text-gray-900" numberOfLines={1} ellipsizeMode="tail">
                 {booking.providerName}
               </Text>
-              <Text className="mt-0.5 text-xs text-gray-500">
+              <Text className="mt-0.5 text-xs text-gray-500" numberOfLines={1} ellipsizeMode="tail">
                 {CATEGORY_LABEL[booking.category] ?? booking.category} ·{' '}
                 {booking.sector}
               </Text>
-              <Text className="mt-0.5 text-xs text-gray-400">
+              <Text className="mt-0.5 text-xs text-gray-400" numberOfLines={1} ellipsizeMode="tail">
                 {booking.scheduledFor}
               </Text>
             </View>
 
             {/* Status badge */}
-            <StatusBadge status={booking.status} />
+            <View className="flex-shrink-0">
+              <StatusBadge status={booking.status} />
+            </View>
           </Pressable>
         ))}
         <View className="h-6" />
