@@ -123,12 +123,14 @@ class ProviderRead(BaseModel):
 class ProviderSummary(BaseModel):
     """Minimal provider info — used inside booking/response objects to avoid nesting too much."""
 
-    id:          int
-    name:        str
-    city:        str
-    category:    ServiceCategory
-    rating:      float
-    distance_km: float | None = None  # calculated by MatchingAgent, not stored in DB
+    id:              int
+    name:            str
+    city:            str
+    category:        ServiceCategory
+    rating:          float
+    distance_km:     float | None = None  # calculated by MatchingAgent, not stored in DB
+    phone:           str | None = None
+    whatsapp_number: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -159,9 +159,10 @@ Classify the user's message into one of these dialogue acts:
   - "objection_price"    : User thinks the provider is too expensive or asks about price (e.g. "Too expensive", "Koi sasta hai?")
   - "request_alternative": User explicitly wants a different provider (e.g. "Show someone else", "Koi aur dikhao")
   - "general_query"      : User is asking a factual question about the provider or service (e.g. "Does he bring parts?", "Kitna time lagega?")
-  - "booking_confirmed"  : User is agreeing to book or responding affirmatively (e.g. "Yes", "yes", "Haan", "haan", "Theek hai", "theek hai", "Ok", "ok", "Confirm", "confirm", "Book kar do", "Ok confirmed", "Chalo book karo", "Proceed", "Sure", "yep", "ji haan", "kar do", "haan kardo")
+  - "booking_intent"     : User expresses desire to book, selects a provider, or says "The first technician is fine", "Book him", "Book Ali", "I want this one", "Proceed with this one"
+  - "booking_confirmed"  : User explicitly confirms the booking (e.g. "Confirm booking", "Yes confirm", "Haan confirm kardo", "Ji confirm kar dein", "Confirm")
   - "booking_cancelled"  : User is cancelling (e.g. "No", "Cancel", "Rehne do", "Nahi chahiye")
-  - "slot_modification"  : User wants to change a slot like timing or location (e.g. "Can we do 5 PM instead?")
+  - "reschedule_requested": User wants to change or reschedule the appointment date/time (e.g. "Can we do 5 PM instead?", "change date to 9 oct")
   - "greeting"           : User is saying hello, hi, salam, etc. (e.g. "Hi", "Hello", "Salam", "AOA", "Hey", "Kya haal hai")
   - "other"              : Anything else — treat as a friendly general reply
 
@@ -183,12 +184,33 @@ For "request_alternative":
   - If no more providers: say so honestly and ask if they want to proceed with the first one or wait.
 
 For "general_query":
-  - Answer the specific question as helpfully as possible using general knowledge about the trade.
-  - End by asking if they'd like to proceed with the booking.
+  - Answer the specific question as helpfully as possible using the provided technician details or general trade knowledge.
+  - If the user asks for the technician's contact number, phone number, or WhatsApp (e.g. "technician ka number", "what is technician contact number?", "contact details", "phone number", "number dein"):
+    Always provide the technician's phone number and WhatsApp number clearly in the user's exact language/script:
+    - English: "You can contact {name} directly at {phone}."
+    - Roman Urdu: "Aap {name} se is number par direct rabta kar sakte hain: {phone}."
+    - Urdu: "آپ {name} سے اس نمبر پر براہِ راست رابطہ کر سکتے ہیں: {phone}۔"
+  - If the booking is NOT yet confirmed: End by asking if they would like to proceed with the booking.
+  - If the booking IS ALREADY CONFIRMED: Never ask them to book again and never send a welcome greeting. Simply answer their question with the technician/booking details.
+
+For "booking_intent":
+  - Ask for explicit user confirmation in the user's language/script before any booking is created:
+    - Roman Urdu: "Aap {provider} ko book karne lage hain. Kya main yeh booking confirm kar doon?"
+    - Urdu: "آپ {provider} کی بکنگ کرنے لگے ہیں۔ کیا میں یہ بکنگ کنفرم کر دوں؟"
+    - English: "You're about to book {provider}. Would you like me to confirm this booking?"
+  - NEVER say "Booking confirmed" in booking_intent!
 
 For "booking_confirmed":
   - Produce a warm, brief confirmation reply in the user's language (e.g. Roman Urdu: "Zabardast! Booking confirm ho gayi hai. Technician jald aap se rabta karega.", English: "Great! Booking confirmed. The technician will contact you shortly.", Urdu: "بہترین! بکنگ کنفرم ہو گئی ہے۔ ٹیکنیشن جلد آپ سے رابطہ کرے گا۔").
   - DO NOT generate a booking code — the system handles that.
+
+For "reschedule_requested":
+  - User wants to change or reschedule the visit date or time (e.g. "change it to 9 oct time 10am", "can we do tomorrow at 3pm?", "kal sham 5 baje kardo", "timing change karni hai 10 am", "reschedule to Friday"):
+  - Extract the new date/time cleanly into "new_scheduled_text" (e.g. "9 Oct, 10:00 AM", "Tomorrow, 3:00 PM", "Friday, 5:00 PM").
+  - Confirm the reschedule warmly in the user's exact language/script:
+    - English: "Sure! I have rescheduled your appointment to {new_scheduled_text}."
+    - Roman Urdu: "Theek hai! Main ne aap ki appointment {new_scheduled_text} ke liye reschedule kar di hai."
+    - Urdu: "ٹھیک ہے! میں نے آپ کی اپائنٹمنٹ {new_scheduled_text} کے لیے ری شیڈول کر دی ہے۔"
 
 For "booking_cancelled":
   - Acknowledge gracefully. Ask if they need help with a different service.
@@ -203,11 +225,13 @@ Return ONLY a valid JSON object:
 {{
   "dialogue_act": string,
   "reply_message": string,
+  "new_scheduled_text": string | null,
   "advance_provider": boolean
 }}
 
 Where:
-  - "dialogue_act"      : one of the acts listed above
-  - "reply_message"     : your natural language reply to the user (in the user's exact language/script)
-  - "advance_provider"  : true ONLY when dialogue_act is "request_alternative" and a next provider should be shown
+  - "dialogue_act"        : one of the acts listed above (e.g. "reschedule_requested")
+  - "reply_message"       : your natural language reply to the user (in the user's exact language/script)
+  - "new_scheduled_text"  : extracted new appointment time if dialogue_act is "reschedule_requested", otherwise null
+  - "advance_provider"    : true ONLY when dialogue_act is "request_alternative" and a next provider should be shown
 """

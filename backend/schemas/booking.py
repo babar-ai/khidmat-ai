@@ -31,6 +31,7 @@ class BookingRead(BaseModel):
     service_type:  str
     location_text: str | None
     scheduled_at:  datetime | None
+    scheduled_text: str | None = None
     booking_code:  str | None
     status:        BookingStatus
     created_at:    datetime

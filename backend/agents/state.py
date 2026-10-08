@@ -99,7 +99,17 @@ class KhidmatState(TypedDict):
       - 'general_query'        — asking a question about the provider / service
       - 'booking_confirmed'    — "yes book him", "theek hai", "confirm kar do"
       - 'booking_cancelled'    — "no cancel", "rehne do"
+      - 'reschedule_requested' — "change date to 9 oct", "reschedule to 5 pm"
     """
+
+    booking_confirmation_pending: bool
+    """
+    True when a provider is selected/proposed and human confirmation is required
+    before booking_node is allowed to execute the database mutation.
+    """
+
+    new_scheduled_text: str | None
+    """Holds the updated schedule text when a user reschedules an existing booking."""
 
     proposed_providers: list[dict[str, Any]]
     """

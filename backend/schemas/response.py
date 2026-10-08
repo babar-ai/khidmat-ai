@@ -34,9 +34,10 @@ class ServiceResponse(BaseModel):
     session_id: str                          # unique ID for this pipeline run
     intent:     IntentResult                 # what the AI understood
     provider:   ProviderSummary             # the top matched provider
-    booking:    BookingRead                  # the created booking
+    booking:    BookingRead | None = None    # populated once explicitly confirmed
     trace:      list[TraceStep]             # step-by-step agent reasoning log
-    message:    str                          # human-readable confirmation message
+    message:    str                          # human-readable message
+    booking_confirmation_pending: bool = False
 
 
 class ErrorResponse(BaseModel):

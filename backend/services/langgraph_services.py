@@ -10,6 +10,7 @@ Single point of control for:
   - Graph compilation, synchronous execution, and streaming
 """
 
+from datetime import datetime
 import logging
 import time
 import uuid
@@ -20,7 +21,7 @@ from psycopg_pool import ConnectionPool
 # pyrefly: ignore [missing-import]
 from langgraph.checkpoint.postgres import PostgresSaver       
 # pyrefly: ignore [missing-import]
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import END, START, StateGraph 
 
 from agents.state import KhidmatState
 from core.config import settings
@@ -28,7 +29,7 @@ from core.database import SessionLocal
 from models.booking import Booking, BookingStatus
 from models.provider import Provider, ServiceCategory
 from models.trace import Trace
-from services.openai_services import openai_service
+from services.openai_services import openai_service 
 from services.prompt_templates import (
     CONVERSATIONAL_SYSTEM_PROMPT,
     INTENT_EXTRACTION_SYSTEM_PROMPT,
@@ -59,6 +60,8 @@ def intent_node(state: KhidmatState) -> dict[str, Any]:
     proposed_providers = list(state.get("proposed_providers") or [])
 
 
+
+    req_lower = request_text.lower()
 
     # If providers were already proposed, check if the user is switching to a different category
     if proposed_providers:
@@ -373,6 +376,8 @@ def matching_node(state: KhidmatState) -> dict[str, Any]:
             ranked.append({
                 "id": p.id,
                 "name": p.name,
+                "phone": p.phone,
+                "whatsapp_number": p.whatsapp_number,
                 "city": p.city,
                 "category": p.category.value,
                 "rating": p.rating,
@@ -412,6 +417,10 @@ def matching_node(state: KhidmatState) -> dict[str, Any]:
             "providers": ranked,
             "proposed_providers": ranked,
             "active_provider_index": 0,
+            "followup_question": "Here's the best matched provider based on distance, reviews, rating, and availability:",
+            "booking_confirmation_pending": False,
+            "is_ready_to_book": False,
+            "booking": None,
             "trace_steps": updated_trace,
             "error": None,
         }
@@ -521,11 +530,12 @@ def booking_node(state: KhidmatState) -> dict[str, Any]:
             "provider_id": new_booking.provider_id,
             "service_type": new_booking.service_type,
             "location_text": new_booking.location_text,
-            "scheduled_at": new_booking.scheduled_at,
+            "scheduled_text": intent.get("scheduled_text") or "today",
+            "scheduled_at": new_booking.scheduled_at.isoformat() if new_booking.scheduled_at else None,
             "booking_code": new_booking.booking_code,
             "status": new_booking.status.value,
-            "created_at": new_booking.created_at,
-            "updated_at": new_booking.updated_at,
+            "created_at": new_booking.created_at.isoformat() if new_booking.created_at else None,
+            "updated_at": new_booking.updated_at.isoformat() if new_booking.updated_at else None,
         }
 
         return {
@@ -580,27 +590,43 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
     active_idx = state.get("active_provider_index", 0)
     rejected_ids = list(state.get("rejected_provider_ids") or [])
     chat_history = list(state.get("chat_history") or [])
+    intent = state.get("intent") or {}
 
     current_provider = (
         proposed_providers[active_idx]
         if 0 <= active_idx < len(proposed_providers)
         else (proposed_providers[0] if proposed_providers else None)
     )
+ 
+    booking = state.get("booking")
 
     # Format current provider
     if current_provider:
         dist_str = f"{current_provider.get('distance_km')} km away" if current_provider.get('distance_km') is not None else "distance unknown"
-        curr_str = f"Name: {current_provider.get('name')}, Category: {current_provider.get('category')}, Rating: {current_provider.get('rating')} stars, Distance: {dist_str}"
+        phone_str = current_provider.get('phone') or "Not provided"
+        whatsapp_str = current_provider.get('whatsapp_number') or phone_str
+        booking_status_str = f"CONFIRMED (Booking Code: {booking.get('booking_code')})" if booking else "Not yet booked"
+
+        curr_str = (
+            f"Name: {current_provider.get('name')}, Category: {current_provider.get('category')}, "
+            f"Rating: {current_provider.get('rating')} stars, Distance: {dist_str}, "
+            f"Phone: {phone_str}, WhatsApp: {whatsapp_str}, Booking Status: {booking_status_str}"
+        )
+
     else:
-        curr_str = "None"
+        curr_str = "None" 
 
     # Format other available alternatives
     alt_lines = []
-    for i, p in enumerate(proposed_providers):
+
+    for i, p in enumerate(proposed_providers): 
+
         if i != active_idx and p.get("id") not in rejected_ids:
             p_dist = f"{p.get('distance_km')} km away" if p.get('distance_km') is not None else "distance unknown"
             alt_lines.append(f"- Option {i + 1}: {p.get('name')} (Rating: {p.get('rating')}, {p_dist})")
+
     alt_str = "\n".join(alt_lines) if alt_lines else "No other providers available in this category."
+
 
     # Format recent chat history (last 6 messages)
     history_lines = [
@@ -629,27 +655,20 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
         reply_message = conv_output.get("reply_message") or "I understand. How would you like to proceed?"
         advance_provider = bool(conv_output.get("advance_provider"))
 
-        # Explicit Affirmative confirmation check
+        # Explicit Affirmative words
         AFFIRMATIVE_WORDS = {
             "yes", "haan", "theek hai", "thek hai", "ok", "okay",
             "confirm", "confirmed", "book", "book him", "book them",
             "book kar do", "book kardo", "kar do", "kardo", "kar dein",
             "proceed", "sure", "yep", "yeah", "ji haan", "ji",
-            "haan kardo", "chalo", "done", "perfect",
+            "haan kardo", "chalo", "done", "perfect", "confirm booking",
         }
         clean_req = request_text.strip().lower().rstrip("!.,?")
+        
         is_explicit_affirmative = (
             clean_req in AFFIRMATIVE_WORDS
-            or any(clean_req.startswith(w) for w in ["yes", "haan", "theek hai", "ok", "confirm", "book"])
+            or any(clean_req.startswith(w) for w in ["yes", "haan", "theek hai", "ok", "confirm", "proceed", "ji "])
         )
-
-        if is_explicit_affirmative and not dialogue_act.startswith("objection") and dialogue_act != "request_alternative":
-            dialogue_act = "booking_confirmed"
-
-        # Update history
-        updated_history = list(chat_history)
-        updated_history.append({"role": "user", "content": request_text})
-        updated_history.append({"role": "assistant", "content": reply_message})
 
         new_active_idx = active_idx
         updated_rejected = list(rejected_ids)
@@ -668,6 +687,120 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
             else:
                 if active_idx + 1 < len(proposed_providers):
                     new_active_idx = active_idx + 1
+
+        # Check if booking is already confirmed in this session
+        has_existing_booking = bool(booking and isinstance(booking, dict) and booking.get("status") == "confirmed")
+
+        # Check if human confirmation has already been requested
+        was_confirmation_pending = bool(state.get("booking_confirmation_pending", False)) and not has_existing_booking
+
+        is_explicit_confirm_cmd = (
+            not has_existing_booking and (
+                clean_req.startswith("confirm booking")
+                or clean_req in {"confirm", "confirm it", "confirm please", "yes confirm", "haan confirm", "ji confirm", "confirmed"}
+            )
+        )
+        is_cancellation = (
+            dialogue_act == "booking_cancelled"
+            or any(clean_req.startswith(w) for w in ["cancel", "rehne do", "nahi chahiye", "no", "nahi"])
+            or clean_req in {"cancel", "no", "nah", "stop", "rehne do", "nahi chahiye"}
+        )
+        is_selection_or_book = (
+            not has_existing_booking and (
+                dialogue_act in {"booking_confirmed", "booking_intent"}
+                or any(w in clean_req for w in ["fine", "book", "this one", "first technician", "second technician", "third technician", "send"])
+            )
+        )
+
+        target_prov = (
+            proposed_providers[new_active_idx]
+            if 0 <= new_active_idx < len(proposed_providers)
+            else (current_provider or (proposed_providers[0] if proposed_providers else None))
+        )
+        prov_name = target_prov["name"] if target_prov else "the technician"
+        serv_name = (intent.get("service_type") or (target_prov.get("category") if target_prov else "service")).replace("_", " ").title()
+        time_name = intent.get("scheduled_text") or "today"
+        lang = intent.get("language") or "en"
+
+        new_scheduled_text = conv_output.get("new_scheduled_text")
+        is_reschedule_intent = (
+            dialogue_act in ("reschedule_requested", "slot_modification")
+            or bool(new_scheduled_text)
+            or any(w in clean_req for w in ["change it to", "reschedule", "badal do", "tabdeel", "instead of", "new time"])
+        )
+
+        if is_cancellation:
+            dialogue_act = "booking_cancelled"
+            is_pending_confirmation = False
+            if lang == "ur":
+                reply_message = "بکنگ کینسل کر دی گئی ہے۔ اگر آپ کو کسی اور سروس یا وقت کی ضرورت ہو تو ضرور بتائیں۔"
+            elif lang == "roman_ur":
+                reply_message = "Booking cancel kar di gayi hai. Agar koi aur service ya waqt chahiye ho toh zaroor batayein."
+            else:
+                reply_message = "Booking cancelled. Feel free to request another service or time whenever you're ready."
+
+        elif is_reschedule_intent:
+            dialogue_act = "reschedule_requested"
+            is_pending_confirmation = False
+            effective_time = new_scheduled_text or time_name
+
+            intent["scheduled_text"] = effective_time
+            time_name = effective_time
+
+            # Update PostgreSQL database if booking exists
+            session_id = state.get("session_id")
+            if booking and session_id:
+                db = SessionLocal()
+                try:
+                    db_booking = (
+                        db.query(Booking)
+                        .filter(
+                            Booking.session_id == session_id,
+                            Booking.status == BookingStatus.CONFIRMED,
+                        )
+                        .first()
+                    )
+                    if db_booking:
+                        db_booking.updated_at = datetime.utcnow()
+                        db.commit()
+                except Exception as e:
+                    logger.warning("Reschedule DB commit error: %s", e)
+                    db.rollback()
+                finally:
+                    db.close()
+
+                booking["scheduled_text"] = effective_time
+
+        elif is_explicit_confirm_cmd or (was_confirmation_pending and (is_explicit_affirmative or dialogue_act == "booking_confirmed")):
+            # Human in the loop: Explicit user confirmation received!
+            dialogue_act = "booking_confirmed"
+            is_pending_confirmation = False
+            if not any(w in reply_message.lower() for w in ["confirm", "rabta", "raabta", "booking", "کامیاب", "بکنگ"]):
+                if lang == "ur":
+                    reply_message = f"بہترین! {prov_name} کے ساتھ بکنگ کنفرم ہو گئی ہے۔ ٹیکنیشن جلد آپ سے رابطہ کرے گا۔"
+                elif lang == "roman_ur":
+                    reply_message = f"Zabardast! {prov_name} ke saath booking confirm ho gayi hai. Technician jald aap se rabta karega."
+                else:
+                    reply_message = f"Great! Booking confirmed with {prov_name}. The technician will contact you shortly."
+
+        elif is_selection_or_book or was_confirmation_pending:
+            # Human in the loop: Ask for confirmation before booking!
+            dialogue_act = "confirmation_requested"
+            is_pending_confirmation = True
+            if lang == "ur":
+                reply_message = f"آپ {prov_name} کو {serv_name} ({time_name}) کے لیے بک کرنے لگے ہیں۔ کیا میں یہ بکنگ کنفرم کر دوں؟"
+            elif lang == "roman_ur":
+                reply_message = f"Aap {prov_name} ko {serv_name} ({time_name}) ke liye book karne lage hain. Kya main yeh booking confirm kar doon?"
+            else:
+                reply_message = f"You're about to book {prov_name} for {serv_name} ({time_name}). Would you like me to confirm this booking?"
+
+        else:
+            is_pending_confirmation = False
+
+        # Update history
+        updated_history = list(chat_history)
+        updated_history.append({"role": "user", "content": request_text})
+        updated_history.append({"role": "assistant", "content": reply_message})
 
         duration_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -690,6 +823,7 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
                 "chat_history": updated_history,
                 "active_provider_index": new_active_idx,
                 "rejected_provider_ids": updated_rejected,
+                "booking_confirmation_pending": False,
                 "is_ready_to_book": True,
                 "trace_steps": updated_trace,
                 "error": None,
@@ -701,8 +835,10 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
             "chat_history": updated_history,
             "active_provider_index": new_active_idx,
             "rejected_provider_ids": updated_rejected,
+            "booking_confirmation_pending": is_pending_confirmation,
             "is_ready_to_book": False,
-            "booking": None,
+            "booking": booking,
+            "new_scheduled_text": time_name if dialogue_act in ("reschedule_requested", "slot_modification") else None,
             "trace_steps": updated_trace,
             "error": f"CONVERSATION: {reply_message}",
         }
@@ -732,7 +868,7 @@ def conversation_node(state: KhidmatState) -> dict[str, Any]:
 # ── Conditional Routing Functions ─────────────────────────────────────────────
 def route_after_intent(state: KhidmatState) -> str:
     """Route: 'conversational' -> conversation_node, 'ok' -> matching_node, 'error' -> error_node"""
-    if state.get("proposed_providers"):
+    if state.get("proposed_providers") or state.get("booking"):
         return "conversational"
 
     if state.get("error") or not state.get("is_ready_to_book"):
@@ -753,7 +889,7 @@ def route_after_conversation(state: KhidmatState) -> str:
 
 
 def route_after_matching(state: KhidmatState) -> str:
-    """Route: 'ok' -> booking_node, 'empty' -> error_node"""
+    """Route: 'ok' -> END (proposes provider to user, awaits human confirmation), 'empty' -> error_node"""
     if state.get("error") or not state.get("providers"):
         return "empty"
 
@@ -810,7 +946,7 @@ class LangGraphService:
         builder.add_conditional_edges(
             "matching_node",
             route_after_matching,
-            {"ok": "booking_node", "empty": "error_node"},
+            {"ok": END, "empty": "error_node"},
         )
 
         builder.add_edge("booking_node", END)
